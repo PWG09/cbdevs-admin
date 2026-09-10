@@ -14,7 +14,7 @@ export default function SettingsClient() {
     if(!auth || !db) return;
     if(!auth.currentUser)return;
     setEmail(auth.currentUser.email||"");
-    getDoc(doc(db,"users",auth.currentUser.uid)).then(s=>{if(s.exists()){const d=s.data();setName(d.name||"");setRole(d.role||")}})
+    getDoc(doc(db,"users",auth.currentUser.uid)).then(s=>{if(s.exists()){const d=s.data();setName(d.name||"");setRole(d.role||"")}})
   },[]);
   async function save(){
     const auth = getAuthClient();
