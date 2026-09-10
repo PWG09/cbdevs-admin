@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
@@ -8,11 +8,17 @@ export async function POST(req: NextRequest) {
     const { idToken } = body;
 
     // Client must send the current Firebase ID token.
-    // This endpoint verifies it server-side before creating another Auth user.
     if (!idToken) return NextResponse.json({ error: "Falta idToken." }, { status: 401 });
 
-    const decoded = await adminAuth.verifyIdToken(idToken);
-    const adminSnap = await adminDb.doc(`users/${decoded.uid}`).get();
+    const auth = await getAdminAuth();
+    const db = await getAdminDb();
+
+    if (!auth || !db) {
+      return NextResponse.json({ error: "Error de configuración del servidor." }, { status: 500 });
+    }
+
+    const decoded = await auth.verifyIdToken(idToken);
+    const adminSnap = await db.doc(`users/${decoded.uid}`).get();
     if (!adminSnap.exists || adminSnap.data()?.role !== "admin" || adminSnap.data()?.active !== true) {
       return NextResponse.json({ error: "No autorizado." }, { status: 403 });
     }
@@ -22,8 +28,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Datos incompletos." }, { status: 400 });
     }
 
-    const user = await adminAuth.createUser({ email, password, displayName: name });
-    await adminDb.doc(`users/${user.uid}`).set({
+    const user = await auth.createUser({ email, password, displayName: name });
+    await db.doc(`users/${user.uid}`).set({
       name, email, role, active: true, createdAt: FieldValue.serverTimestamp()
     });
 
@@ -33,3 +39,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error?.message || "Error del servidor." }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';
