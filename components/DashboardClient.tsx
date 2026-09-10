@@ -18,12 +18,13 @@ export default function DashboardClient() {
     try {
       const db = getDbClient();
       if (!db) return;
-      return onSnapshot(collection(db, "projects"), snap => {
+      const unsubscribe = onSnapshot(collection(db, "projects"), snap => {
         if (!snap.empty) {
           setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Project[]);
           setLive(true);
         }
       }, () => setLive(false));
+      return () => unsubscribe();
     } catch (e) {
       console.error("Dashboard snapshot error:", e);
     }
