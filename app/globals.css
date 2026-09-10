@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: #071014;
+  color: #e8f0f2;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+::selection { background: rgba(242,169,80,.25); }
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-cb-line bg-cb-panel shadow-glow;
+  }
+  .input {
+    @apply w-full rounded-xl border border-cb-line bg-cb-bg px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-cb-amber;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-cb-amber text-black hover:brightness-110;
+  }
+  .btn-ghost {
+    @apply btn border border-cb-line bg-cb-panel2 text-slate-200 hover:border-slate-500;
+  }
+  .mono-label {
+    @apply font-mono text-[11px] uppercase tracking-[.18em] text-cb-amber;
+  }
+}
+
+.scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.scrollbar::-webkit-scrollbar-thumb { background: #203139; border-radius: 99px; }

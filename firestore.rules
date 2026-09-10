@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================
+    // HELPER FUNCTIONS
+    // =========================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return signedIn() && me().active == true;
+    }
+
+    function isAdmin() {
+      return isActive() && me().role == "admin";
+    }
+
+    // =========================================================
+    // ADMIN DASHBOARD RULES
+    // =========================================================
+
+    match /users/{userId} {
+      allow read: if signedIn() && (userId == request.auth.uid || isAdmin());
+      allow create: if false; // Created by Admin SDK
+      allow update: if isAdmin() || (isActive() && userId == request.auth.uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.active == resource.data.active
+        && request.resource.data.email == resource.data.email);
+      allow delete: if false;
+    }
+
+    match /projects/{projectId} {
+      allow read: if isActive();
+      allow create, update: if isActive();
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isActive();
+      allow create: if isActive()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.text != null;
+      allow update, delete: if isAdmin() || (isActive() && resource.data.senderId == request.auth.uid);
+    }
+
+    match /channels/{channelId} {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // =========================================================
+    // PUBLIC WEBSITE RULES
+    // =========================================================
+
+    match /inquiries/{inquiryId} {
+      allow create: if request.resource.data.name != null
+                  && request.resource.data.email != null
+                  && request.resource.data.details != null
+                  && request.resource.data.service != null
+                  && request.resource.data.name.size() <= 120
+                  && request.resource.data.email.size() <= 200
+                  && request.resource.data.details.size() <= 4000
+                  && request.// ...
+                  && request.resource.data.service.size() <= 80
+                  && request.resource.data.keys().hasOnly([
+                    'name', 'email', 'details', 'service', 'createdAt'
+                  ]);
+      allow read, update, delete: if false;
+    }
+
+    match /clients/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if request.auth != null
+                  && resource.data.metadata.clientUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /payment_links/{linkId} {
+      allow read, write: if false;
+    }
+
+    // Default: deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
