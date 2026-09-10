@@ -1,12 +1,12 @@
-import { cert, getApps, initializeApp } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { cert, getApps, initializeApp, App } from "firebase-admin/app";
+import { getAuth, Auth } from "firebase-admin/auth";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
 
-let cachedApp = null;
-let cachedAuth = null;
-let cachedDb = null;
+let cachedApp: App | null = null;
+let cachedAuth: Auth | null = null;
+let cachedDb: Firestore | null = null;
 
-export async function getAdminApp() {
+export async function getAdminApp(): Promise<App | null> {
   if (cachedApp) return cachedApp;
 
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
@@ -14,8 +14,6 @@ export async function getAdminApp() {
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
   if (!projectId || !clientEmail || !privateKey) {
-    // During Vercel build, we return null to avoid crashing the build process.
-    // The actual requests will only happen at runtime.
     return null;
   }
 
@@ -34,14 +32,14 @@ export async function getAdminApp() {
   }
 }
 
-export async function getAdminAuth() {
+export async function getAdminAuth(): Promise<Auth | null> {
   const app = await getAdminApp();
   if (!app) return null;
   if (!cachedAuth) cachedAuth = getAuth(app);
   return cachedAuth;
 }
 
-export async function getAdminDb() {
+export async function getAdminDb(): Promise<Firestore | null> {
   const app = await getAdminApp();
   if (!app) return null;
   if (!cachedDb) cachedDb = getFirestore(app);
