@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
+import { getAuthClient } from "@/lib/firebase";
 import { ShieldCheck, Terminal } from "lucide-react";
 
 export default function LoginForm() {
@@ -18,7 +18,7 @@ export default function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await signInWithEmailAndPassword(getAuthClient()!, email.trim(), password);
       router.replace("/dashboard");
     } catch (err: any) {
       setError(err?.code === "auth/invalid-credential"

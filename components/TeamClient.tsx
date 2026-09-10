@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { getAuthClient, getDbClient } from "@/lib/firebase";
 import type { UserProfile } from "@/lib/types";
 import { UserPlus, UserCheck, UserX } from "lucide-react";
 
@@ -10,9 +10,15 @@ export default function TeamClient() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [show, setShow] = useState(false);
 
-  useEffect(() => onSnapshot(collection(db, "users"), s => setUsers(s.docs.map(d => ({id:d.id,...d.data()})) as UserProfile[])), []);
+  useEffect(() => {
+    const db = getDbClient();
+    if (!db) return;
+    return onSnapshot(collection(db, "users"), s => setUsers(s.docs.map(d => ({id:d.id,...d.data()})) as UserProfile[]));
+  }, []);
 
   async function toggle(u: UserProfile) {
+    const db = getDbClient();
+    if (!db) return;
     await updateDoc(doc(db, "users", u.id), { active: !u.active });
   }
 
@@ -25,6 +31,6 @@ export default function TeamClient() {
 
 function CreateMember({onClose}:{onClose:()=>void}) {
   const [name,setName]=useState(""); const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [role,setRole]=useState("empleado"); const [msg,setMsg]=useState(""); const [loading,setLoading]=useState(false);
-  async function submit(e:React.FormEvent){e.preventDefault();setLoading(true);setMsg("");try{const r=await fetch("/api/admin/create-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password,role,idToken:await auth.currentUser?.getIdToken()})});const data=await r.json();if(!r.ok)throw new Error(data.error||"Error");setMsg("Usuario creado correctamente.");setTimeout(onClose,700);}catch(e:any){setMsg(e.message)}finally{setLoading(false)}}
+  async function submit(e:React.FormEvent){e.preventDefault();setLoading(true);setMsg("");try{const auth = getAuthClient(); if(!auth) throw new Error("Auth not initialized"); const r=await fetch("/api/admin/create-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password,role,idToken:await auth.currentUser?.getIdToken()})});const data=await r.json();if(!r.ok)throw new Error(data.error||"Error");setMsg("Usuario creado correctamente.");setTimeout(onClose,700);}catch(e:any){setMsg(e.message)}finally{setLoading(false)}}
   return <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"><form onSubmit={submit} className="panel w-full max-w-lg p-6"><div className="mono-label">TEAM / CREATE</div><h2 className="mt-1 text-xl font-bold">Nuevo miembro</h2><div className="mt-5 grid gap-4"><input className="input" placeholder="Nombre" value={name} onChange={e=>setName(e.target.value)} required/><input className="input" type="email" placeholder="Correo" value={email} onChange={e=>setEmail(e.target.value)} required/><input className="input" type="password" minLength={6} placeholder="Contraseña temporal" value={password} onChange={e=>setPassword(e.target.value)} required/><select className="input" value={role} onChange={e=>setRole(e.target.value)}><option value="empleado">Empleado</option><option value="admin">Admin</option></select></div>{msg&&<div className="mt-4 rounded-xl border border-cb-line bg-cb-bg p-3 text-sm text-slate-300">{msg}</div>}<div className="mt-6 flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button><button className="btn-primary" disabled={loading}>{loading?"Creando...":"Crear cuenta"}</button></div></form></div>
 }

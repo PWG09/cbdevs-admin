@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getAuthClient, getDbClient } from "@/lib/firebase";
 import { BarChart3, FolderKanban, MessageSquare, Users, Settings, LogOut, Menu, X, Terminal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import type { UserProfile } from "@/lib/types";
 
 const items = [
@@ -25,18 +24,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    const auth = getAuthClient();
+    const db = getDbClient();
+    if (!auth || !db || !auth.currentUser) return;
     getDoc(doc(db, "users", auth.currentUser.uid)).then(s => {
       if (s.exists()) setProfile({ id: s.id, ...s.data() } as UserProfile);
     });
   }, []);
 
   async function logout() {
+    const auth = getAuthClient();
+    if (!auth) return;
     await signOut(auth);
     router.replace("/login");
   }
 
-  const initials = (profile?.name || auth.currentUser?.email || "U")
+  const currentAuth = getAuthClient();
+  const initials = (profile?.name || currentAuth?.currentUser?.email || "U")
     .split(" ").map(x => x[0]).slice(0, 2).join("").toUpperCase();
 
   return (

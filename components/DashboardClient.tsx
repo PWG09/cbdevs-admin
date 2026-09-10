@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDbClient } from "@/lib/firebase";
 import { mockProjects } from "@/lib/mock-data";
 import type { Project } from "@/lib/types";
 import { AlertTriangle, ArrowUpRight, CalendarClock, CircleDollarSign, FolderKanban, Wrench } from "lucide-react";
@@ -15,12 +15,18 @@ export default function DashboardClient() {
   const [live, setLive] = useState(false);
 
   useEffect(() => {
-    return onSnapshot(collection(db, "projects"), snap => {
-      if (!snap.empty) {
-        setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Project[]);
-        setLive(true);
-      }
-    }, () => setLive(false));
+    try {
+      const db = getDbClient();
+      if (!db) return;
+      return onSnapshot(collection(db, "projects"), snap => {
+        if (!snap.empty) {
+          setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Project[]);
+          setLive(true);
+        }
+      }, () => setLive(false));
+    } catch (e) {
+      console.error("Dashboard snapshot error:", e);
+    }
   }, []);
 
   const active = projects.filter(p => ["En desarrollo", "En revisión"].includes(p.deliveryStatus)).length;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, onSnapshot, serverTimestamp, updateDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDbClient } from "@/lib/firebase";
 import { mockProjects } from "@/lib/mock-data";
 import type { DeliveryStatus, Project, ServiceType } from "@/lib/types";
 import { ExternalLink, GripVertical, List, Plus, Search, LayoutGrid } from "lucide-react";
@@ -24,9 +24,13 @@ export default function ProjectsClient() {
   const [service, setService] = useState("");
   const [showNew, setShowNew] = useState(false);
 
-  useEffect(() => onSnapshot(collection(db, "projects"), snap => {
-    if (!snap.empty) setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Project[]);
-  }), []);
+  useEffect(() => {
+    const db = getDbClient();
+    if(!db) return;
+    return onSnapshot(collection(db, "projects"), snap => {
+      if (!snap.empty) setProjects(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Project[]);
+    });
+  }, []);
 
   const filtered = useMemo(() => projects.filter(p =>
     (!filter || p.deliveryStatus === filter) &&
@@ -35,6 +39,8 @@ export default function ProjectsClient() {
 
   async function move(id: string, status: DeliveryStatus) {
     setProjects(prev => prev.map(p => p.id === id ? { ...p, deliveryStatus: status } : p));
+    const db = getDbClient();
+    if (!db) return;
     if (!id.startsWith("p-")) await updateDoc(doc(db, "projects", id), { deliveryStatus: status, updatedAt: serverTimestamp() });
   }
 
@@ -88,6 +94,8 @@ function NewProject({ onClose }: { onClose: () => void }) {
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
     try {
+      const db = getDbClient();
+      if(!db) throw new Error("DB not initialized");
       await addDoc(collection(db, "projects"), {
         name, client, serviceType, deliveryStatus: "Cotizado", paymentStatus: "Pendiente",
         currency: "MXN", amount: Number(amount), initialPayment: 0, monthlyMaintenance: 0,

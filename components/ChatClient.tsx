@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { getAuthClient, getDbClient } from "@/lib/firebase";
 import type { ChatMessage } from "@/lib/types";
 import { Hash, Send, MessageSquare } from "lucide-react";
 
@@ -13,6 +13,8 @@ export default function ChatClient() {
 
   useEffect(() => {
     try {
+      const db = getDbClient();
+      if (!db) return;
       const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(150));
 
       const unsubscribe = onSnapshot(
@@ -41,7 +43,9 @@ export default function ChatClient() {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const value = text.trim();
-    if (!value || !auth.currentUser) return;
+    const auth = getAuthClient();
+    const db = getDbClient();
+    if (!value || !auth?.currentUser || !db) return;
     await addDoc(collection(db, "messages"), {
       channelId: "general",
       senderId: auth.currentUser.uid,
