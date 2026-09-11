@@ -20,11 +20,6 @@ export default function ChatClient() {
         return;
       }
 
-      if (!db.app) {
-        console.error("[Chat] Database instance is invalid (missing app reference).");
-        return;
-      }
-
       const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(150));
 
       unsubscribe = onSnapshot(
@@ -39,6 +34,9 @@ export default function ChatClient() {
         },
         (error) => {
           console.error("[Chat] Firestore Subscription Error:", error);
+          if (error.code === 'permission-denied') {
+            console.error("[Chat] Permission Denied: Please check your Firestore Rules in the Firebase Console.");
+          }
         }
       );
     } catch (setupError) {
@@ -57,14 +55,18 @@ export default function ChatClient() {
     const auth = getAuthClient();
     const db = getDbClient();
     if (!value || !auth?.currentUser || !db) return;
-    await addDoc(collection(db, "messages"), {
-      channelId: "general",
-      senderId: auth.currentUser.uid,
-      senderName: auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Usuario",
-      text: value,
-      createdAt: serverTimestamp(),
-    });
-    setText("");
+    try {
+      await addDoc(collection(db, "messages"), {
+        channelId: "general",
+        senderId: auth.currentUser.uid,
+        senderName: auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Usuario",
+        text: value,
+        createdAt: serverTimestamp(),
+      });
+      setText("");
+    } catch (err) {
+      console.error("[Chat] Error sending message:", err);
+    }
   }
 
   return (

@@ -21,68 +21,71 @@ export default function AuthGuard({
   const [configError, setConfigError] = useState(false);
 
   useEffect(() => {
-    const auth = getAuthClient();
-    if (!auth) {
-      console.error("Firebase Auth not initialized. Check your environment variables in Vercel.");
-      setConfigError(true);
-      setReady(true);
-      return;
-    }
-    return onAuthStateChanged(auth, async (user: User | null) => {
-      if (!user) {
-        setProfile(null);
+    let unsubscribe: (() => void) | null = null;
+
+    try {
+      const auth = getAuthClient();
+      if (!auth) {
+        console.error("[AuthGuard] Firebase Auth not initialized. Check your environment variables in Vercel.");
+        setConfigError(true);
         setReady(true);
-
-        if (pathname !== "/login") {
-          router.replace("/login");
-        }
-
         return;
       }
 
-      try {
-        const db = getDbClient();
-        if (!db) throw new Error("Firestore not initialized");
-        const snap = await getDoc(doc(db, "users", user.uid));
+      unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
+        if (!user) {
+          setProfile(null);
+          setReady(true);
 
-        if (!snap.exists()) {
-          const auth = getAuthClient();
-          if (auth) await signOut(auth);
-          router.replace("/login");
+          if (pathname !== "/login") {
+            router.replace("/login");
+          }
+
           return;
         }
 
-        const p = {
-          id: user.uid,
-          ...snap.data(),
-        } as UserProfile;
+        try {
+          const db = getDbClient();
+          if (!db) throw new Error("Firestore not initialized");
+          const snap = await getDoc(doc(db, "users", user.uid));
 
-        // Usuario desactivado
-        if (!p.active) {
-          const auth = getAuthClient();
-          if (auth) await signOut(auth);
+          if (!snap.exists()) {
+            const authClient = getAuthClient();
+            if (authClient) await signOut(authClient);
+            router.replace("/login");
+            return;
+          }
+
+          const p = {
+            id: user.uid,
+            ...snap.data(),
+          } as UserProfile;
+
+          if (!p.active || p.role !== "admin") {
+            const authClient = getAuthClient();
+            if (authClient) await signOut(authClient);
+            router.replace("/login");
+            return;
+          }
+
+          setProfile(p);
+          setReady(true);
+        } catch (error) {
+          console.error("[AuthGuard] Session verification error:", error);
+          const authClient = getAuthClient();
+          if (authClient) await signOut(authClient);
           router.replace("/login");
-          return;
         }
+      });
+    } catch (criticalError) {
+      console.error("[AuthGuard] Critical initialization failure:", criticalError);
+      setConfigError(true);
+      setReady(true);
+    }
 
-        // Solo administradores pueden acceder al dashboard
-        if (p.role !== "admin") {
-          const auth = getAuthClient();
-          if (auth) await signOut(auth);
-          router.replace("/login");
-          return;
-        }
-
-        setProfile(p);
-        setReady(true);
-      } catch (error) {
-        console.error("Error verificando sesión:", error);
-
-        const auth = getAuthClient();
-        if (auth) await signOut(auth);
-        router.replace("/login");
-      }
-    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [pathname, router]);
 
   if (!ready) {
