@@ -18,12 +18,12 @@ export async function getAdminApp(): Promise<App | null> {
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
   if (!projectId || !clientEmail || !privateKey) {
-    console.error("Firebase Admin missing environment variables:", {
-      projectId: !!projectId,
-      clientEmail: !!clientEmail,
-      privateKey: !!privateKey,
-    });
-    return null;
+    const missing = [];
+    if (!projectId) missing.push("FIREBASE_ADMIN_PROJECT_ID");
+    if (!clientEmail) missing.push("FIREBASE_ADMIN_CLIENT_EMAIL");
+    if (!privateKey) missing.push("FIREBASE_ADMIN_PRIVATE_KEY");
+
+    throw new Error(`Missing environment variables: ${missing.join(", ")}`);
   }
 
   try {
@@ -35,9 +35,9 @@ export async function getAdminApp(): Promise<App | null> {
       }),
     });
     return cachedApp;
-  } catch (e) {
+  } catch (e: any) {
     console.error("Firebase Admin init error:", e);
-    return null;
+    throw new Error(`Firebase Admin init failed: ${e.message}`);
   }
 }
 
