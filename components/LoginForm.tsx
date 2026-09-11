@@ -18,7 +18,9 @@ export default function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(getAuthClient()!, email.trim(), password);
+      const auth = getAuthClient();
+      if (!auth) throw new Error("Firebase Auth not initialized. Please check environment variables.");
+      await signInWithEmailAndPassword(auth, email.trim(), password);
       router.replace("/dashboard");
     } catch (err: any) {
       setError(err?.code === "auth/invalid-credential"
