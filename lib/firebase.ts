@@ -21,25 +21,40 @@ export function getFirebaseApp() {
     console.warn("Firebase API Key missing. Skipping initialization.");
     return null;
   }
-  cachedApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  return cachedApp;
+  try {
+    cachedApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    return cachedApp;
+  } catch (e) {
+    console.error("Firebase App init error:", e);
+    return null;
+  }
 }
 
 export function getAuthClient() {
   if (cachedAuth) return cachedAuth;
   const app = getFirebaseApp();
   if (!app) return null;
-  cachedAuth = getAuth(app);
-  return cachedAuth;
+  try {
+    cachedAuth = getAuth(app);
+    return cachedAuth;
+  } catch (e) {
+    console.error("Firebase Auth init error:", e);
+    return null;
+  }
 }
 
 export function getDbClient() {
   if (cachedDb) return cachedDb;
   const app = getFirebaseApp();
   if (!app) return null;
-  cachedDb = getFirestore(app);
-  return cachedDb;
+  try {
+    cachedDb = getFirestore(app);
+    return cachedDb;
+  } catch (e) {
+    console.error("Firebase Db init error:", e);
+    return null;
+  }
 }
 
-export const auth = getAuthClient();
-export const db = getDbClient();
+// REMOVED: export const auth = getAuthClient();
+// REMOVED: export const db = getDbClient();
