@@ -14,29 +14,42 @@ export async function POST(req: NextRequest) {
     const db = await getAdminDb();
 
     if (!auth || !db) {
-      return NextResponse.json({ error: "Error de configuración del servidor." }, { status: 500 });
+      return NextResponse.json({ error: "Error de configuración del servidor. Verifica las variables FIREBASE_ADMIN_* en Vercel." }, { status: 500 });
     }
 
-    const decoded = await auth.verifyIdToken(idToken);
+    let decoded;
+    try {
+      decoded = await auth.verifyIdToken(idToken);
+    } catch (e: any) {
+      return NextResponse.json({ error: "Token de sesión inválido o expirado." }, { status: 401 });
+    }
+
     const adminSnap = await db.doc(`users/${decoded.uid}`).get();
     if (!adminSnap.exists || adminSnap.data()?.role !== "admin" || adminSnap.data()?.active !== true) {
-      return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+      return NextResponse.json({ error: "No tienes permisos de administrador activo." }, { status: 403 });
     }
 
     const { name, email, password, role } = body;
     if (!name || !email || !password || !["admin", "empleado"].includes(role)) {
-      return NextResponse.json({ error: "Datos incompletos." }, { status: 400 });
+      return NextResponse.json({ error: "Datos incompletos o rol no válido." }, { status: 400 });
     }
 
-    const user = await auth.createUser({ email, password, displayName: name });
-    await db.doc(`users/${user.uid}`).set({
-      name, email, role, active: true, createdAt: FieldValue.serverTimestamp()
-    });
+    try {
+      const user = await auth.createUser({ email, password, displayName: name });
+      await db.doc(`users/${user.uid}`).set({
+        name, email, role, active: true, createdAt: FieldValue.serverTimestamp()
+      });
 
-    return NextResponse.json({ ok: true, uid: user.uid });
+      return NextResponse.json({ ok: true, uid: user.uid });
+    } catch (e: any) {
+      if (e.code === 'auth/email-already-exists') {
+        return NextResponse.json({ error: "El correo electrónico ya está registrado." }, { status: 400 });
+      }
+      throw e;
+    }
   } catch (error: any) {
-    console.error(error);
-    return NextResponse.json({ error: error?.message || "Error del servidor." }, { status: 500 });
+    console.error("[CREATE_USER_ERROR]:", error);
+    return NextResponse.json({ error: error?.message || "Error interno del servidor." }, { status: 500 });
   }
 }
 

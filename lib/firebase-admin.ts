@@ -8,12 +8,21 @@ let cachedDb: Firestore | null = null;
 
 export async function getAdminApp(): Promise<App | null> {
   if (cachedApp) return cachedApp;
+  if (getApps().length > 0) {
+    cachedApp = getApps()[0];
+    return cachedApp;
+  }
 
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
   if (!projectId || !clientEmail || !privateKey) {
+    console.error("Firebase Admin missing environment variables:", {
+      projectId: !!projectId,
+      clientEmail: !!clientEmail,
+      privateKey: !!privateKey,
+    });
     return null;
   }
 

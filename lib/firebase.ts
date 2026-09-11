@@ -11,19 +11,12 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Singleton instances
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 
 export function getFirebaseApp() {
   if (app) return app;
-
-  if (!firebaseConfig.apiKey) {
-    console.error("[Firebase] API Key missing. Check Vercel environment variables.");
-    return null;
-  }
-
   try {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     return app;
@@ -37,7 +30,6 @@ export function getAuthClient() {
   if (auth) return auth;
   const appInstance = getFirebaseApp();
   if (!appInstance) return null;
-
   try {
     auth = getAuth(appInstance);
     return auth;
@@ -51,7 +43,6 @@ export function getDbClient() {
   if (db) return db;
   const appInstance = getFirebaseApp();
   if (!appInstance) return null;
-
   try {
     db = getFirestore(appInstance);
     return db;
