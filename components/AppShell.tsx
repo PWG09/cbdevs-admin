@@ -39,8 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }
 
-  const currentAuth = getAuthClient();
-  const initials = (profile?.name || currentAuth?.currentUser?.email || "U")
+  const initials = (profile?.name || "U")
     .split(" ").map(x => x[0]).slice(0, 2).join("").toUpperCase();
 
   return (
