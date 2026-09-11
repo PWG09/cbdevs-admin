@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
     const auth = await getAdminAuth();
     const db = await getAdminDb();
 
+    if (!auth || !db) {
+      return NextResponse.json({ error: "Error de configuración del servidor." }, { status: 500 });
+    }
+
     let decoded;
     try {
       decoded = await auth.verifyIdToken(idToken);
