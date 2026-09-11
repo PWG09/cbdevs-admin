@@ -1,4 +1,4 @@
-import { getApp, getApps, initializeApp, App } from "firebase/app";
+import { getApp, getApps, initializeApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
@@ -11,7 +11,7 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let cachedApp: App | null = null;
+let cachedApp: FirebaseApp | null = null;
 let cachedAuth: Auth | null = null;
 let cachedDb: Firestore | null = null;
 
@@ -41,8 +41,5 @@ export function getDbClient() {
   return cachedDb;
 }
 
-// For backward compatibility and simpler migration,
-// we'll provide these but they might be null during build.
-// Components should be updated to use the getters.
 export const auth = getAuthClient();
 export const db = getDbClient();
