@@ -1,4 +1,4 @@
-import { initializeApp, getApp, FirebaseApp } from "firebase/app";
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
@@ -10,10 +10,6 @@ const firebaseConfig = Object.freeze({
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 });
-
-// Use a unique name for the app to avoid conflicts with other Firebase instances
-// that might be initialized by the SDK or other libraries in the Next.js bundle.
-const APP_NAME = "cbdevs-admin-app";
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
@@ -28,17 +24,20 @@ export function getFirebaseApp() {
   }
 
   try {
-    // We use a named app to isolate our instance and prevent "Component not registered" errors
-    app = initializeApp(firebaseConfig, APP_NAME);
-    return app;
-  } catch (e: any) {
-    try {
-      app = getApp(APP_NAME);
-      return app;
-    } catch (innerError) {
-      console.error("[Firebase] Fatal App Initialization Error:", innerError);
-      return null;
+    // In Next.js App Router, the most stable way to handle Firebase initialization
+    // is to check getApps() and only initialize if the list is empty.
+    // We use the default app because named apps can sometimes cause issues
+    // with internal SDK component registration.
+    const apps = getApps();
+    if (apps.length > 0) {
+      app = apps[0];
+    } else {
+      app = initializeApp(firebaseConfig);
     }
+    return app;
+  } catch (e) {
+    console.error("[Firebase] Fatal App Initialization Error:", e);
+    return null;
   }
 }
 
@@ -49,6 +48,9 @@ export function getAuthClient() {
   if (!appInstance) return null;
 
   try {
+    // IMPORTANT: We pass the appInstance explicitly.
+    // If this still fails with "not registered", it means the firebase/auth
+    // package is being loaded from a different location than firebase/app.
     auth = getAuth(appInstance);
     return auth;
   } catch (e) {
