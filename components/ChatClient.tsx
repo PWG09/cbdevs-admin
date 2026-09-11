@@ -15,6 +15,11 @@ export default function ChatClient() {
     try {
       const db = getDbClient();
       if (!db) return;
+
+      if (typeof query !== 'function' || typeof collection !== 'function' || typeof orderBy !== 'function' || typeof limit !== 'function') {
+        console.error("Firebase Firestore functions are not loaded correctly. Check SDK version and imports.");
+        return;
+      }
       const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(150));
 
       const unsubscribe = onSnapshot(
@@ -34,7 +39,7 @@ export default function ChatClient() {
 
       return () => unsubscribe();
     } catch (setupError) {
-      console.error("Error setting up chat query:", setupError);
+      console.error("CRITICAL Error setting up chat query:", setupError);
     }
   }, []);
 
