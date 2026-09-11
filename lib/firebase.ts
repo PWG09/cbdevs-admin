@@ -1,70 +1,73 @@
-import { getApp, getApps, initializeApp, FirebaseApp } from "firebase/app";
+import { initializeApp, getApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
-const firebaseConfig = {
+const firebaseConfig = Object.freeze({
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+});
 
-let cachedApp: FirebaseApp | null = null;
-let cachedAuth: Auth | null = null;
-let cachedDb: Firestore | null = null;
+// Use a unique name for the app to avoid conflicts with other Firebase instances
+// that might be initialized by the SDK or other libraries in the Next.js bundle.
+const APP_NAME = "cbdevs-admin-app";
+
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
 
 export function getFirebaseApp() {
-  if (cachedApp) return cachedApp;
+  if (app) return app;
 
   if (!firebaseConfig.apiKey) {
-    console.error("[Firebase] API Key is missing! Check your environment variables.");
+    console.error("[Firebase] Missing API Key! Check NEXT_PUBLIC_FIREBASE_API_KEY in Vercel.");
     return null;
   }
 
   try {
-    // Ensure we only initialize once and get a valid instance
-    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    cachedApp = app;
+    // We use a named app to isolate our instance and prevent "Component not registered" errors
+    app = initializeApp(firebaseConfig, APP_NAME);
     return app;
-  } catch (e) {
-    console.error("[Firebase] Critical initialization error:", e);
-    return null;
+  } catch (e: any) {
+    try {
+      app = getApp(APP_NAME);
+      return app;
+    } catch (innerError) {
+      console.error("[Firebase] Fatal App Initialization Error:", innerError);
+      return null;
+    }
   }
 }
 
 export function getAuthClient() {
-  // If we have a cached auth client, return it
-  if (cachedAuth) return cachedAuth;
+  if (auth) return auth;
 
-  // Force app initialization first
-  const app = getFirebaseApp();
-  if (!app) return null;
+  const appInstance = getFirebaseApp();
+  if (!appInstance) return null;
 
   try {
-    // The error "Component auth has not been registered yet" happens when
-    // getAuth is called before the Firebase app is fully ready or if
-    // multiple versions of the SDK are fighting.
-    cachedAuth = getAuth(app);
-    return cachedAuth;
+    auth = getAuth(appInstance);
+    return auth;
   } catch (e) {
-    console.error("[Firebase] Auth client initialization error:", e);
+    console.error("[Firebase] Auth Registration Error:", e);
     return null;
   }
 }
 
 export function getDbClient() {
-  if (cachedDb) return cachedDb;
+  if (db) return db;
 
-  const app = getFirebaseApp();
-  if (!app) return null;
+  const appInstance = getFirebaseApp();
+  if (!appInstance) return null;
 
   try {
-    cachedDb = getFirestore(app);
-    return cachedDb;
+    db = getFirestore(appInstance);
+    return db;
   } catch (e) {
-    console.error("[Firebase] Firestore client initialization error:", e);
+    console.error("[Firebase] Firestore Registration Error:", e);
     return null;
   }
 }
