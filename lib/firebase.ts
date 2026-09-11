@@ -24,6 +24,7 @@ export function getFirebaseApp() {
   }
 
   try {
+    // Ensure we only initialize once and get a valid instance
     const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     cachedApp = app;
     return app;
@@ -34,10 +35,17 @@ export function getFirebaseApp() {
 }
 
 export function getAuthClient() {
+  // If we have a cached auth client, return it
   if (cachedAuth) return cachedAuth;
+
+  // Force app initialization first
   const app = getFirebaseApp();
   if (!app) return null;
+
   try {
+    // The error "Component auth has not been registered yet" happens when
+    // getAuth is called before the Firebase app is fully ready or if
+    // multiple versions of the SDK are fighting.
     cachedAuth = getAuth(app);
     return cachedAuth;
   } catch (e) {
@@ -48,8 +56,10 @@ export function getAuthClient() {
 
 export function getDbClient() {
   if (cachedDb) return cachedDb;
+
   const app = getFirebaseApp();
   if (!app) return null;
+
   try {
     cachedDb = getFirestore(app);
     return cachedDb;
