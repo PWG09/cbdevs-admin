@@ -12,35 +12,41 @@ export default function ChatClient() {
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
     try {
       const db = getDbClient();
-      if (!db) return;
-
-      if (typeof query !== 'function' || typeof collection !== 'function' || typeof orderBy !== 'function' || typeof limit !== 'function') {
-        console.error("Firebase Firestore functions are not loaded correctly. Check SDK version and imports.");
+      if (!db) {
+        console.error("[Chat] Firestore database client not available.");
         return;
       }
+
+      if (!db.app) {
+        console.error("[Chat] Database instance is invalid (missing app reference).");
+        return;
+      }
+
       const q = query(collection(db, "messages"), orderBy("createdAt", "asc"), limit(150));
 
-      const unsubscribe = onSnapshot(
+      unsubscribe = onSnapshot(
         q,
         (snap) => {
           try {
             const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ChatMessage[];
             setMessages(msgs);
           } catch (renderError) {
-            console.error("Error processing snapshot data:", renderError);
+            console.error("[Chat] Error processing snapshot data:", renderError);
           }
         },
         (error) => {
-          console.error("Firestore Subscription Error:", error);
+          console.error("[Chat] Firestore Subscription Error:", error);
         }
       );
-
-      return () => unsubscribe();
     } catch (setupError) {
-      console.error("CRITICAL Error setting up chat query:", setupError);
+      console.error("[Chat] CRITICAL Error setting up chat query:", setupError);
     }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   useEffect(() => bottom.current?.scrollIntoView({ behavior: "smooth" }), [messages.length]);

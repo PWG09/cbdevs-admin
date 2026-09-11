@@ -17,15 +17,18 @@ let cachedDb: Firestore | null = null;
 
 export function getFirebaseApp() {
   if (cachedApp) return cachedApp;
+
   if (!firebaseConfig.apiKey) {
-    console.warn("Firebase API Key missing. Skipping initialization.");
+    console.error("[Firebase] API Key is missing! Check your environment variables.");
     return null;
   }
+
   try {
-    cachedApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    return cachedApp;
+    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    cachedApp = app;
+    return app;
   } catch (e) {
-    console.error("Firebase App init error:", e);
+    console.error("[Firebase] Critical initialization error:", e);
     return null;
   }
 }
@@ -38,7 +41,7 @@ export function getAuthClient() {
     cachedAuth = getAuth(app);
     return cachedAuth;
   } catch (e) {
-    console.error("Firebase Auth init error:", e);
+    console.error("[Firebase] Auth client initialization error:", e);
     return null;
   }
 }
@@ -51,10 +54,7 @@ export function getDbClient() {
     cachedDb = getFirestore(app);
     return cachedDb;
   } catch (e) {
-    console.error("Firebase Db init error:", e);
+    console.error("[Firebase] Firestore client initialization error:", e);
     return null;
   }
 }
-
-// REMOVED: export const auth = getAuthClient();
-// REMOVED: export const db = getDbClient();
