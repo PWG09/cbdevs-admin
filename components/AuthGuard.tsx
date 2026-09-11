@@ -37,7 +37,7 @@ export default function AuthGuard({
         const snap = await getDoc(doc(db, "users", user.uid));
 
         if (!snap.exists()) {
-          await signOut(auth);
+          await signOut(getAuthClient()!);
           router.replace("/login");
           return;
         }
@@ -49,14 +49,14 @@ export default function AuthGuard({
 
         // Usuario desactivado
         if (!p.active) {
-          await signOut(auth);
+          await signOut(getAuthClient()!);
           router.replace("/login");
           return;
         }
 
         // Solo administradores pueden acceder al dashboard
         if (p.role !== "admin") {
-          await signOut(auth);
+          await signOut(getAuthClient()!);
           router.replace("/login");
           return;
         }
@@ -66,7 +66,7 @@ export default function AuthGuard({
       } catch (error) {
         console.error("Error verificando sesión:", error);
 
-        await signOut(auth);
+        await signOut(getAuthClient()!);
         router.replace("/login");
       }
     });
