@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { getAuthClient } from "@/lib/firebase";
 import { Bot, Calculator, Check, Clipboard, Copy, DollarSign, Loader2, RefreshCw, Sparkles, Target, Clock3 } from "lucide-react";
 
@@ -33,13 +33,16 @@ const money = (n: number, c: string) => new Intl.NumberFormat("es-MX", {
 }).format(Number(n) || 0);
 
 export default function QuoteAIClient() {
-  const [form, setForm] = useState(blank);
+  const formRef = useRef({ ...blank });
+  const [, forceFormReset] = useState(0);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const set = (key: keyof typeof blank, value: string) => setForm(p => ({ ...p, [key]: value }));
+  const set = (key: keyof typeof blank, value: string) => {
+    formRef.current[key] = value;
+  };
 
   const quoteText = useMemo(() => {
     if (!quote) return "";
@@ -70,7 +73,7 @@ export default function QuoteAIClient() {
       const res = await fetch("/api/quotes/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-        body: JSON.stringify(form)
+        body: JSON.stringify(formRef.current)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "No se pudo generar la cotización.");
@@ -95,7 +98,7 @@ export default function QuoteAIClient() {
           <h1 className="mt-1 flex items-center gap-3 text-3xl font-bold">Cotizador IA <Sparkles size={23} className="text-cb-amber" /></h1>
           <p className="mt-1 text-sm text-cb-muted">Convierte la información de un prospecto en precio, alcance, mantenimiento y tiempo estimado.</p>
         </div>
-        <button className="btn-ghost" onClick={() => { setForm(blank); setQuote(null); setError(""); }}><RefreshCw size={15}/> Nueva cotización</button>
+        <button className="btn-ghost" onClick={() => { formRef.current = { ...blank }; forceFormReset(x => x + 1); setQuote(null); setError(""); }}><RefreshCw size={15}/> Nueva cotización</button>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_.95fr]">
@@ -107,27 +110,27 @@ export default function QuoteAIClient() {
 
           <div className="grid gap-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Tipo de negocio" k="businessType" placeholder="Restaurante, taller, clínica..." required />
+              <Field formRef={formRef} label="Tipo de negocio" k="businessType" placeholder="Restaurante, taller, clínica..." required />
               <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-300">Moneda</span>
-                <select className="input w-full" value={form.currency} onChange={e => set("currency", e.target.value)}>
+                <select className="input w-full" defaultValue={blank.currency} onChange={e => set("currency", e.target.value)}>
                   <option value="MXN">MXN — Pesos mexicanos</option><option value="CAD">CAD — Dólar canadiense</option><option value="USD">USD — Dólar estadounidense</option>
                 </select>
               </label>
             </div>
-            <Field label="¿Qué hace el negocio?" k="businessDescription" placeholder="Qué vende, quiénes son sus clientes y cómo trabajan." area required />
-            <Field label="Objetivo del proyecto" k="goal" placeholder="Vender en línea, conseguir clientes, reservas, automatizar..." area required />
+            <Field formRef={formRef} label="¿Qué hace el negocio?" k="businessDescription" placeholder="Qué vende, quiénes son sus clientes y cómo trabajan." area required />
+            <Field formRef={formRef} label="Objetivo del proyecto" k="goal" placeholder="Vender en línea, conseguir clientes, reservas, automatizar..." area required />
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Servicios / productos" k="services" placeholder="Paquetes, productos, membresías..." area />
-              <Field label="Páginas / secciones" k="pages" placeholder="Inicio, servicios, contacto, blog..." area />
-              <Field label="Funciones especiales" k="features" placeholder="Login, reservas, panel, pagos..." area />
-              <Field label="Integraciones" k="integrations" placeholder="Stripe, WhatsApp, Maps, CRM..." area />
+              <Field formRef={formRef} label="Servicios / productos" k="services" placeholder="Paquetes, productos, membresías..." area />
+              <Field formRef={formRef} label="Páginas / secciones" k="pages" placeholder="Inicio, servicios, contacto, blog..." area />
+              <Field formRef={formRef} label="Funciones especiales" k="features" placeholder="Login, reservas, panel, pagos..." area />
+              <Field formRef={formRef} label="Integraciones" k="integrations" placeholder="Stripe, WhatsApp, Maps, CRM..." area />
             </div>
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Mercado objetivo" k="targetMarket" placeholder="Local, México, Canadá..." />
-              <Field label="Plazo deseado" k="deadline" placeholder="Ej. 4-6 semanas" />
-              <Field label="Presupuesto del cliente" k="budget" placeholder="Opcional" />
+              <Field formRef={formRef} label="Mercado objetivo" k="targetMarket" placeholder="Local, México, Canadá..." />
+              <Field formRef={formRef} label="Plazo deseado" k="deadline" placeholder="Ej. 4-6 semanas" />
+              <Field formRef={formRef} label="Presupuesto del cliente" k="budget" placeholder="Opcional" />
             </div>
-            <Field label="Notas del vendedor" k="notes" placeholder="Urgencia, objeciones, referencias, competencia..." area />
+            <Field formRef={formRef} label="Notas del vendedor" k="notes" placeholder="Urgencia, objeciones, referencias, competencia..." area />
           </div>
 
           {error && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
@@ -186,21 +189,30 @@ export default function QuoteAIClient() {
   );
 }
 
-function Field({ form, set, label, k, placeholder, area = false, required = false }: {
-  form: typeof blank;
-  set: (key: keyof typeof blank, value: string) => void;
+function Field({ formRef, label, k, placeholder, area = false, required = false }: {
+  formRef: React.MutableRefObject<typeof blank>;
   label: string;
   k: keyof typeof blank;
   placeholder: string;
   area?: boolean;
   required?: boolean;
 }) {
+  const common = {
+    required,
+    className: "input w-full",
+    defaultValue: formRef.current[k],
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      formRef.current[k] = e.target.value;
+    },
+    placeholder,
+  };
+
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-medium text-slate-300">{label}{required ? " *" : ""}</span>
       {area
-        ? <textarea required={required} rows={3} className="input w-full resize-y" value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder} />
-        : <input required={required} className="input w-full" value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder} />}
+        ? <textarea {...common} rows={3} className="input w-full resize-y" />
+        : <input {...common} />}
     </label>
   );
 }
