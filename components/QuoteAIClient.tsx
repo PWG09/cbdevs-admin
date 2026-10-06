@@ -58,8 +58,7 @@ export default function QuoteAIClient() {
       "",
       "INCLUYE",
       ...quote.included.map(x => "• " + x)
-    ].join("
-");
+    ].join("\n");
   }, [quote]);
 
   async function generate() {
