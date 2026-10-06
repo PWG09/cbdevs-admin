@@ -28,6 +28,76 @@ const blank = {
   currency: "MXN", notes: ""
 };
 
+const asString = (value: unknown, fallback = ""): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return fallback;
+};
+
+const asNumber = (value: unknown, fallback = 0): number => {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const asStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap(item => {
+      if (typeof item === "string") return [item];
+      if (item === null || item === undefined) return [];
+      if (typeof item === "object") {
+        const obj = item as Record<string, unknown>;
+        const text = obj.text ?? obj.note ?? obj.message ?? obj.description ?? obj.title;
+        return text !== undefined ? [asString(text)] : [];
+      }
+      return [String(item)];
+    }).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\n|\r\n|•|;|\|/)
+      .map(item => item.replace(/^\s*[-*]\s*/, "").trim())
+      .filter(Boolean);
+  }
+
+  if (value !== null && value !== undefined) return [String(value)];
+  return [];
+};
+
+const normalizeQuote = (raw: unknown): Quote => {
+  const data = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+
+  const breakdown = Array.isArray(data.breakdown)
+    ? data.breakdown.flatMap(item => {
+        if (!item || typeof item !== "object") return [];
+        const row = item as Record<string, unknown>;
+        return [{
+          item: asString(row.item ?? row.name ?? row.title, "Concepto"),
+          description: asString(row.description ?? row.details),
+          price: asNumber(row.price ?? row.amount ?? row.cost)
+        }];
+      })
+    : [];
+
+  return {
+    summary: asString(data.summary, "Cotización preliminar generada por IA."),
+    recommendedPrice: asNumber(data.recommendedPrice ?? data.price),
+    minimumPrice: asNumber(data.minimumPrice ?? data.minPrice),
+    maximumPrice: asNumber(data.maximumPrice ?? data.maxPrice),
+    currency: asString(data.currency, "MXN").toUpperCase(),
+    monthlyMaintenance: asNumber(data.monthlyMaintenance ?? data.maintenance),
+    timelineWeeks: asNumber(data.timelineWeeks ?? data.weeks),
+    complexity: asString(data.complexity, "Media"),
+    confidence: asNumber(data.confidence),
+    breakdown,
+    included: asStringArray(data.included),
+    assumptions: asStringArray(data.assumptions),
+    risks: asStringArray(data.risks),
+    scopeReduction: asStringArray(data.scopeReduction ?? data.scopeReductionSuggestions),
+    salesNotes: asStringArray(data.salesNotes ?? data.sales_notes ?? data.salesNotesText)
+  };
+};
+
 const money = (n: number, c: string) => new Intl.NumberFormat("es-MX", {
   style: "currency", currency: c || "MXN", maximumFractionDigits: 0
 }).format(Number(n) || 0);
@@ -77,7 +147,7 @@ export default function QuoteAIClient() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "No se pudo generar la cotización.");
-      setQuote(data.quote);
+      setQuote(normalizeQuote(data.quote));
     } catch (e: any) {
       setError(e?.message || "Ocurrió un error.");
     } finally { setLoading(false); }
@@ -134,7 +204,7 @@ export default function QuoteAIClient() {
           </div>
 
           {error && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
-          <button disabled={loading} onClick={generate} className="btn-primary mt-5 w-full justify-center py-3">
+          <button disabled={loading} onClick={generate} className="btn-primary mt-5 w-full justify-center">
             {loading ? <><Loader2 size={17} className="animate-spin"/> Analizando...</> : <><Sparkles size={17}/> Generar cotización con IA</>}
           </button>
           <p className="mt-3 text-center text-[11px] text-slate-600">La IA genera una recomendación interna. Revisen alcance y precio antes de enviarla.</p>
@@ -166,7 +236,7 @@ export default function QuoteAIClient() {
                 <Metric icon={Target} label="Complejidad" value={quote.complexity}/>
                 <Metric icon={Sparkles} label="Confianza" value={quote.confidence + "%"}/>
               </div>
-              <div className="p-5"><h3 className="mb-3 font-semibold">Desglose</h3><div className="space-y-2">{(quote.breakdown || []).map((x,i) =>
+              <div className="p-5"><h3 className="mb-3 font-semibold">Desglose</h3><div className="space-y-2">{quote.breakdown.map((x,i) =>
                 <div key={i} className="flex items-start justify-between gap-3 rounded-xl border border-cb-line bg-cb-bg p-3"><div><div className="text-sm font-medium">{x.item}</div><div className="mt-1 text-xs text-slate-500">{x.description}</div></div><div className="shrink-0 font-mono text-sm text-cb-amber">{money(x.price, quote.currency)}</div></div>
               )}</div></div>
             </div>
@@ -179,7 +249,7 @@ export default function QuoteAIClient() {
             </div>
 
             <div className="panel p-5"><div className="flex items-center gap-2 text-sm font-semibold"><Clipboard size={15} className="text-cb-teal"/> Notas para ventas</div>
-              <ul className="mt-3 space-y-2 text-xs text-slate-400">{(quote.salesNotes || []).map((x,i) => <li key={i}>• {x}</li>)}</ul>
+              <ul className="mt-3 space-y-2 text-xs text-slate-400">{quote.salesNotes.map((x,i) => <li key={i}>• {x}</li>)}</ul>
             </div>
             <button className="btn-primary w-full justify-center" onClick={copy}>{copied ? <Check size={16}/> : <Copy size={16}/>} Copiar cotización comercial</button>
           </div>}
@@ -222,5 +292,5 @@ function Metric({ icon: Icon, label, value }: any) {
 }
 
 function List({ title, items, icon: Icon }: any) {
-  return <div className="panel p-5"><div className="flex items-center gap-2 text-sm font-semibold"><Icon size={15} className="text-cb-amber"/>{title}</div><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400">{(items || []).map((x:string,i:number)=><li key={i}>• {x}</li>)}</ul></div>;
+  return <div className="panel p-5"><div className="flex items-center gap-2 text-sm font-semibold"><Icon size={15} className="text-cb-amber"/>{title}</div><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400">{items.map((x:string,i:number)=><li key={i}>• {x}</li>)}</ul></div>;
 }
