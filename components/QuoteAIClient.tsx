@@ -87,15 +87,6 @@ export default function QuoteAIClient() {
     setTimeout(() => setCopied(false), 1600);
   }
 
-  const Field = ({ label, k, placeholder, area = false, required = false }: any) => (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-slate-300">{label}{required ? " *" : ""}</span>
-      {area
-        ? <textarea required={required} rows={3} className="input w-full resize-y" value={form[k as keyof typeof form]} onChange={e => set(k, e.target.value)} placeholder={placeholder} />
-        : <input required={required} className="input w-full" value={form[k as keyof typeof form]} onChange={e => set(k, e.target.value)} placeholder={placeholder} />}
-    </label>
-  );
-
   return (
     <div className="mx-auto max-w-[1450px] space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -192,6 +183,25 @@ export default function QuoteAIClient() {
         </section>
       </div>
     </div>
+  );
+}
+
+function Field({ form, set, label, k, placeholder, area = false, required = false }: {
+  form: typeof blank;
+  set: (key: keyof typeof blank, value: string) => void;
+  label: string;
+  k: keyof typeof blank;
+  placeholder: string;
+  area?: boolean;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium text-slate-300">{label}{required ? " *" : ""}</span>
+      {area
+        ? <textarea required={required} rows={3} className="input w-full resize-y" value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder} />
+        : <input required={required} className="input w-full" value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder} />}
+    </label>
   );
 }
 
