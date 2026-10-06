@@ -61,7 +61,7 @@ export default function AuthGuard({
             ...snap.data(),
           } as UserProfile;
 
-          if (!p.active || p.role !== "admin") {
+          if (!p.active || !["admin", "empleado"].includes(p.role)) {
             const authClient = getAuthClient();
             if (authClient) await signOut(authClient);
             router.replace("/login");
