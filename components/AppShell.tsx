@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { getAuthClient, getDbClient } from "@/lib/firebase";
-import { BarChart3, FolderKanban, MessageSquare, Users, Settings, LogOut, Menu, X, Terminal } from "lucide-react";
+import { BarChart3, FolderKanban, MessageSquare, Users, Settings, LogOut, Menu, X, Terminal, Calculator } from "lucide-react";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import type { UserProfile } from "@/lib/types";
@@ -12,6 +12,7 @@ import type { UserProfile } from "@/lib/types";
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/projects", label: "Proyectos", icon: FolderKanban },
+  { href: "/quotes", label: "Cotizador IA", icon: Calculator },
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/team", label: "Equipo", icon: Users, admin: true },
   { href: "/settings", label: "Perfil / Config.", icon: Settings },
