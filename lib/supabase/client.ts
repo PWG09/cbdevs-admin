@@ -31,7 +31,7 @@ export async function getCurrentProfile(){
  if(memberError)throw memberError;
  for(const m of members||[]){
   const {data:app}=await supabase.from("organization_apps").select("enabled").eq("organization_id",m.organization_id).eq("app_key","admin").maybeSingle();
-  if(app?.enabled)return {id:user.id,name:profile.display_name||user.email||"Usuario",email:profile.email||user.email||"",role:m.role==="owner"||m.role==="admin"?"admin":"empleado",active:true,createdAt:profile.created_at,organizationId:m.organization_id};
+  if(app?.enabled && ["owner","admin","manager"].includes(m.role))return {id:user.id,name:profile.display_name||user.email||"Usuario",email:profile.email||user.email||"",role:m.role==="owner"||m.role==="admin"?"admin":"empleado",active:true,createdAt:profile.created_at,organizationId:m.organization_id};
  }
  throw new Error("Tu cuenta no tiene permisos para CBDEVS Admin.");
 }
