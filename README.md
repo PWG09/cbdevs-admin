@@ -1,130 +1,33 @@
-# CBDEVS — Internal Admin Dashboard
+# CBDEVS Admin
 
-Dashboard privado de operación para CBDEVS.
+Internal operations dashboard for CBDEVS. This branch migrates runtime authentication and app data from Firebase to the central Supabase project shared by CBDEVS Admin, Web, Courses, and Client Portal.
 
-## Stack
+## Central Supabase
 
-- Next.js + React + TypeScript
-- Tailwind CSS
-- Firebase Auth
-- Firestore
-- Realtime chat con `onSnapshot`
-- Recharts
-- API Route de Next.js + Firebase Admin para crear usuarios desde el panel
+- Project reference: `rpfupihdsqxprhptxypv`
+- Browser-safe variables: `NEXT_PUBLIC_CBDEVS_SUPABASE_URL`, `NEXT_PUBLIC_CBDEVS_SUPABASE_ANON_KEY`
+- Server-only variables: `CBDEVS_CENTRAL_SUPABASE_URL`, `CBDEVS_CENTRAL_SUPABASE_SERVICE_ROLE_KEY`
+- Operational tables use the `cbdevs_` prefix and are protected by organization-scoped RLS.
+- Auth is Supabase Auth. Access requires active membership and the enabled `admin` app; being authenticated alone grants no Admin access.
 
-## 1. Instalar
+## Main features
 
-```bash
-npm install
-cp .env.example .env.local
-npm run dev
-```
+- Project pipeline and dashboard from `cbdevs_projects`
+- Internal chat from `cbdevs_messages`
+- Team membership and invitation management using Supabase Auth Admin APIs on the server
+- AI quote endpoint authenticated with a Supabase access token
 
-Abre `http://localhost:3000`.
+## Setup
 
-## 2. Firebase
+1. Configure the two public browser variables for the central project in Vercel.
+2. Configure the two server-only central variables. Never use a `NEXT_PUBLIC_` prefix for the service-role key.
+3. Set NVIDIA server-side variables if the AI quote tool is enabled.
+4. In Supabase Auth, set production/local redirect URLs, email templates, and SMTP. Invitation delivery must be tested.
+5. Ensure the intended staff accounts exist in Supabase Auth, have profiles, and are members of an organization with the `admin` app enabled.
+6. Run `npm install`, `npm run build`, then test login, team invitations, project CRUD, chat, and quote generation.
 
-Puedes reutilizar tu proyecto existente `cbdev-a74dc`.
+## Migration safety
 
-En Firebase Console:
+The central schema is deployed, but the existing Firebase users and records have **not** been imported. Firebase Admin dependencies/scripts are retained only to support controlled legacy exports during the migration. Do not remove the old Firebase project or redirect production users until account mapping, data counts, access-control tests, and rollback are verified.
 
-1. Authentication → Sign-in method → habilita Email/Password.
-2. Crea manualmente el primer usuario admin.
-3. Firestore Database → crea la base de datos.
-4. Copia la configuración de la Web App a `.env.local`.
-5. Publica `firestore.rules`.
-
-### Crear el primer admin
-
-Crea el usuario en Authentication y después crea manualmente:
-
-`users/{UID}`
-
-con:
-
-```json
-{
-  "name": "Carlos Wiebe",
-  "email": "TU_CORREO",
-  "role": "admin",
-  "active": true
-}
-```
-
-El UID debe ser exactamente el UID del usuario en Firebase Authentication.
-
-## 3. Crear usuarios desde el dashboard
-
-La pantalla Equipo usa `/api/admin/create-user`.
-
-El servidor necesita las variables `FIREBASE_ADMIN_*` de `.env.local`.
-
-Para obtenerlas:
-
-Firebase Console → Project Settings → Service accounts → Generate new private key.
-
-No subas ese JSON ni la private key a GitHub.
-
-## 4. Seed de proyectos
-
-Opcional:
-
-```bash
-npm run seed
-```
-
-El seed necesita las mismas variables Admin.
-
-## 5. Seguridad
-
-`firestore.rules`:
-
-- admin: acceso global y gestión de usuarios.
-- empleado: proyectos, chat y su propio perfil.
-- ningún cliente puede crear usuarios Auth directamente desde Firestore.
-- la creación de usuarios se hace con Firebase Admin en servidor.
-
-## 6. Estructura
-
-```text
-app/
-  (protected)/
-    dashboard/
-    projects/
-    chat/
-    team/
-    settings/
-  api/admin/create-user/
-  login/
-components/
-lib/
-scripts/
-firestore.rules
-```
-
-## 7. Producción
-
-### Vercel
-
-Configura todas las variables de `.env.local` en Project Settings → Environment Variables y despliega.
-
-### Firebase Hosting
-
-El frontend Next.js requiere configurar el hosting/framework de Next.js o usar una plataforma compatible con Next.js. Para este proyecto, Vercel es la opción más sencilla.
-
-## Importante
-
-El modo inicial del dashboard tiene datos mock en `lib/mock-data.ts`, por lo que la interfaz puede visualizarse antes de llenar Firestore.
-
-Cuando existen documentos reales en `projects`, `users` o `messages`, las vistas usan Firestore en tiempo real.
-
-## Siguientes mejoras recomendadas
-
-- canales por proyecto
-- mensajes directos 1 a 1
-- presencia online
-- notificaciones de mensajes no leídos
-- subcolección `payments` con historial real
-- auditoría de cambios de proyectos
-- drag-and-drop con persistencia de orden
-- Storage para avatares y documentos
+DetailFlow, QuoteSnap, and QuoteAI are explicitly excluded from the central database.
