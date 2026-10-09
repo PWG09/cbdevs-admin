@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { UserProfile } from "@/lib/types";
 
 let browserClient: SupabaseClient | null = null;
 export function getSupabaseClient(): SupabaseClient {
@@ -21,7 +22,7 @@ export async function getCurrentOrganization(appKey="admin"):Promise<string>{
  }
  throw new Error("Tu cuenta no tiene acceso activo a esta aplicación.");
 }
-export async function getCurrentProfile(){
+export async function getCurrentProfile():Promise<UserProfile & {organizationId:string}>{
  const supabase=getSupabaseClient();
  const {data:{user},error:authError}=await supabase.auth.getUser();
  if(authError||!user)throw new Error("Inicia sesión.");
