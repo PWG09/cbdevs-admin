@@ -1,33 +1,29 @@
 # CBDEVS Admin
 
-Internal operations dashboard for CBDEVS. This branch migrates runtime authentication and app data from Firebase to the central Supabase project shared by CBDEVS Admin, Web, Courses, and Client Portal.
+Internal CBDEVS operations dashboard. The application runtime uses the central Supabase project; Firebase is not used by this branch.
 
 ## Central Supabase
 
 - Project reference: `rpfupihdsqxprhptxypv`
-- Browser-safe variables: `NEXT_PUBLIC_CBDEVS_SUPABASE_URL`, `NEXT_PUBLIC_CBDEVS_SUPABASE_ANON_KEY`
-- Server-only variables: `CBDEVS_CENTRAL_SUPABASE_URL`, `CBDEVS_CENTRAL_SUPABASE_SERVICE_ROLE_KEY`
-- Operational tables use the `cbdevs_` prefix and are protected by organization-scoped RLS.
-- Auth is Supabase Auth. Access requires active membership and the enabled `admin` app; being authenticated alone grants no Admin access.
-
-## Main features
-
-- Project pipeline and dashboard from `cbdevs_projects`
-- Internal chat from `cbdevs_messages`
-- Team membership and invitation management using Supabase Auth Admin APIs on the server
-- AI quote endpoint authenticated with a Supabase access token
+- Public browser variables: `NEXT_PUBLIC_CBDEVS_SUPABASE_URL`, `NEXT_PUBLIC_CBDEVS_SUPABASE_ANON_KEY`
+- Server-only variables, only where needed: `CBDEVS_CENTRAL_SUPABASE_URL`, `CBDEVS_CENTRAL_SUPABASE_SERVICE_ROLE_KEY`
+- Authentication: Supabase Auth.
+- Data: shared `public` tables with `cbdevs_` prefixes plus the central organization/membership tables.
+- Authorization must require active organization membership and an enabled `admin` app. Authentication alone does not grant access.
 
 ## Setup
 
-1. Configure the two public browser variables for the central project in Vercel.
-2. Configure the two server-only central variables. Never use a `NEXT_PUBLIC_` prefix for the service-role key.
-3. Set NVIDIA server-side variables if the AI quote tool is enabled.
-4. In Supabase Auth, set production/local redirect URLs, email templates, and SMTP. Invitation delivery must be tested.
-5. Ensure the intended staff accounts exist in Supabase Auth, have profiles, and are members of an organization with the `admin` app enabled.
-6. Run `npm install`, `npm run build`, then test login, team invitations, project CRUD, chat, and quote generation.
+1. Add the public Supabase URL and publishable/legacy anon key to the Admin Vercel project.
+2. Add the server-only URL and secret key only for server routes that need privileged Auth Admin operations. Never expose the secret key to browser code.
+3. Configure Supabase Auth site URL, redirect URLs, and reliable email/SMTP delivery.
+4. Bootstrap the first owner and organization through a controlled server-side process; do not trust client-supplied roles or organization IDs.
+5. Install dependencies and run `npm run build`.
+6. Test login, owner bootstrap, project CRUD, organization isolation, chat/realtime, team invites/status changes, and quote generation before production cutover.
 
-## Migration safety
+## Clean start
 
-The central schema is deployed, but the existing Firebase users and records have **not** been imported. Firebase Admin dependencies/scripts are retained only to support controlled legacy exports during the migration. Do not remove the old Firebase project or redirect production users until account mapping, data counts, access-control tests, and rollback are verified.
+This branch does not import Firebase users, projects, clients, messages, or files. The central Supabase application tables are intended to start empty. Old Firebase configuration files, rules, admin SDK helpers, and Firebase seed scripts are not part of the runtime.
 
-DetailFlow, QuoteSnap, and QuoteAI are explicitly excluded from the central database.
+Do not delete the old Firebase project itself; keep it untouched as a rollback reference until the Supabase version is tested and deployed. No Vercel environment changes are implied by this repository change.
+
+DetailFlow, QuoteSnap, and QuoteAI are separate and excluded from the central CBDEVS database.
