@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { getAuthClient } from "@/lib/firebase";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { Bot, Calculator, Check, Clipboard, Copy, DollarSign, Loader2, RefreshCw, Sparkles, Target, Clock3 } from "lucide-react";
 
 type Quote = {
@@ -137,9 +137,9 @@ export default function QuoteAIClient() {
   async function generate() {
     setLoading(true); setError(""); setQuote(null);
     try {
-      const auth = getAuthClient();
-      if (!auth?.currentUser) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
-      const token = await auth.currentUser.getIdToken();
+      const { data: { session } } = await getSupabaseClient().auth.getSession();
+      if (!session?.access_token) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      const token = session.access_token;
       const res = await fetch("/api/quotes/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
