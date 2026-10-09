@@ -18,7 +18,7 @@ Internal CBDEVS operations dashboard. The application runtime uses the central S
 3. Configure Supabase Auth site URL, redirect URLs, and reliable email/SMTP delivery.
 4. Bootstrap the first owner and organization through a controlled server-side process; do not trust client-supplied roles or organization IDs.
 5. Install dependencies and run `npm run build`.
-6. Test login, owner bootstrap, project CRUD, organization isolation, chat/realtime, team invites/status changes, and quote generation before production cutover.
+6. Test login, owner bootstrap, project CRUD, organization isolation, chat/realtime, team invites/status changes, and quote generation before considering the migration operationally complete.
 
 ## Clean start
 
@@ -31,4 +31,4 @@ DetailFlow, QuoteSnap, and QuoteAI are separate and excluded from the central CB
 
 ## One-time first-owner bootstrap
 
-The central database starts empty. Create the first user directly in Supabase Auth, confirm that email, then set the server-only Vercel variable `CBDEVS_INITIAL_OWNER_EMAIL` to that exact email (lowercase). Sign in to Admin and send the authenticated access token to `POST /api/bootstrap` to initialize the single `CBDEVS` organization, owner membership, profile, and enabled apps. The endpoint refuses unconfirmed users, any email other than the configured initial owner, and any existing unrelated organization. It never accepts a client-supplied role or organization ID. Do not set this variable to a public/shared mailbox; remove it after successful bootstrap.
+The production code now uses central Supabase. The first-owner bootstrap is still pending because the project has no Auth users or organizations yet. Create the intended owner in Supabase Auth, confirm that email, set the server-only Vercel variable `CBDEVS_INITIAL_OWNER_EMAIL` to that exact email (lowercase), sign in to Admin, then call `POST /api/bootstrap` with the user's bearer token. The endpoint refuses unconfirmed users, any email other than the configured initial owner, and any unrelated existing organization. It never accepts a client-supplied role or organization ID. Remove the email allowlist variable after successful bootstrap.
