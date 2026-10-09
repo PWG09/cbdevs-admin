@@ -27,3 +27,8 @@ This branch does not import Firebase users, projects, clients, messages, or file
 Do not delete the old Firebase project itself; keep it untouched as a rollback reference until the Supabase version is tested and deployed. No Vercel environment changes are implied by this repository change.
 
 DetailFlow, QuoteSnap, and QuoteAI are separate and excluded from the central CBDEVS database.
+
+
+## One-time first-owner bootstrap
+
+The central database starts empty. Create the first user directly in Supabase Auth, confirm that email, then set the server-only Vercel variable `CBDEVS_INITIAL_OWNER_EMAIL` to that exact email (lowercase). Sign in to Admin and send the authenticated access token to `POST /api/bootstrap` to initialize the single `CBDEVS` organization, owner membership, profile, and enabled apps. The endpoint refuses unconfirmed users, any email other than the configured initial owner, and any existing unrelated organization. It never accepts a client-supplied role or organization ID. Do not set this variable to a public/shared mailbox; remove it after successful bootstrap.
