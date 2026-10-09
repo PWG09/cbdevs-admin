@@ -57,5 +57,5 @@ export interface ChatMessage {
   text: string;
   createdAt?: {
   toDate?: () => Date;
-} | Date;
+} | Date | string;
 }
