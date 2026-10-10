@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       .eq("status", "active").maybeSingle();
     if (membershipError) {
       console.error("[TEAM_CREATE_AUTH_CHECK]", { code: membershipError.code, message: membershipError.message, details: membershipError.details, hint: membershipError.hint });
-      return NextResponse.json({ error: "Supabase no pudo consultar tu membresía. Revisa la variable CBDEVS_CENTRAL_SUPABASE_URL y CBDEVS_CENTRAL_SUPABASE_SERVICE_ROLE_KEY en Vercel, y que apunten al proyecto central correcto." }, { status: 500 });
+      return NextResponse.json({ error: "No se pudo consultar la membresía en Supabase.", diagnostic: { code: membershipError.code || null, message: membershipError.message || null, hint: membershipError.hint || null } }, { status: 500 });
     }
     if (!callerMembership || !["owner", "admin"].includes(callerMembership.role))
       return NextResponse.json({ error: "Necesitas ser propietario o administrador de esta organización." }, { status: 403 });
