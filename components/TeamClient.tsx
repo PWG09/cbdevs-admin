@@ -111,6 +111,7 @@ export default function TeamClient() {
 function CreateMember({ close, saved }: { close: () => void; saved: () => Promise<void> }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("empleado");
   const [message, setMessage] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
@@ -130,7 +131,7 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
       const response = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ organizationId, name, email, role }),
+        body: JSON.stringify({ organizationId, name, email, password, role }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo crear la cuenta.");
@@ -159,10 +160,11 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
         <div className="mono-label">TEAM / CREATE ACCOUNT</div>
         <h2 className="mt-1 text-xl font-bold">{temporaryPassword ? "Cuenta creada" : "Crear cuenta de equipo"}</h2>
         {!temporaryPassword ? <>
-          <p className="mt-2 text-sm text-cb-muted">Crea el perfil y el acceso de Supabase directamente. No se enviará una invitación.</p>
+          <p className="mt-2 text-sm text-cb-muted">Crea el perfil y el acceso de Supabase directamente. Define la contraseña inicial; no se enviará una invitación.</p>
           <div className="mt-5 grid gap-4">
             <input className="input" placeholder="Nombre completo" value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={120} required />
             <input className="input" type="email" placeholder="Correo electrónico" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <input className="input" type="password" placeholder="Contraseña inicial (mínimo 10 caracteres)" value={password} onChange={(event) => setPassword(event.target.value)} minLength={10} autoComplete="new-password" required />
             <select className="input" value={role} onChange={(event) => setRole(event.target.value)}>
               <option value="empleado">Empleado</option>
               <option value="admin">Administrador</option>
