@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseClient, getCurrentOrganization } from "@/lib/supabase/client";
 import type { UserProfile } from "@/lib/types";
-import { UserPlus, UserCheck, UserX, Copy, Check } from "lucide-react";
+import { UserPlus, UserCheck, UserX } from "lucide-react";
 
 type TeamUser = UserProfile & { organizationId?: string };
 
@@ -114,16 +114,13 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("empleado");
   const [message, setMessage] = useState("");
-  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [created, setCreated] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
     setMessage("");
-    setTemporaryPassword("");
     setCreated(false);
     try {
       const db = getSupabaseClient();
@@ -137,8 +134,7 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo crear la cuenta.");
-      setTemporaryPassword("");
-      setCreated(true);
+        setCreated(true);
       setMessage(result.message || "Cuenta creada correctamente.");
       await saved();
     } catch (e: any) {
@@ -148,14 +144,6 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
     }
   }
 
-  async function copyPassword() {
-    try {
-      await navigator.clipboard.writeText(temporaryPassword);
-      setCopied(true);
-    } catch {
-      setMessage("No se pudo copiar automáticamente. Selecciona la contraseña y cópiala manualmente.");
-    }
-  }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/70 p-4">
