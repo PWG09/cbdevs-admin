@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   let createdUserId: string | null = null;
   try {
-    const token = (req.headers.get("authorization") || "").replace(/^Bearer\\s+/i, "").trim();
+    const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
     if (!token) return NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 });
     const body = await req.json().catch(() => null);
     const organizationId = typeof body?.organizationId === "string" ? body.organizationId : "";
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const requestedRole = body?.role;
     if (!organizationId || name.length < 2 || name.length > 120 ||
-      !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       !["admin", "empleado"].includes(requestedRole)) {
       return NextResponse.json({ error: "Revisa el nombre, correo y rol seleccionados." }, { status: 400 });
     }
