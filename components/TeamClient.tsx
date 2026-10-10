@@ -115,6 +115,7 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
   const [role, setRole] = useState("empleado");
   const [message, setMessage] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [created, setCreated] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -123,6 +124,7 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
     setLoading(true);
     setMessage("");
     setTemporaryPassword("");
+    setCreated(false);
     try {
       const db = getSupabaseClient();
       const { data: { session } } = await db.auth.getSession();
@@ -135,7 +137,8 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo crear la cuenta.");
-      setTemporaryPassword(result.temporaryPassword || "");
+      setTemporaryPassword("");
+      setCreated(true);
       setMessage(result.message || "Cuenta creada correctamente.");
       await saved();
     } catch (e: any) {
@@ -158,8 +161,8 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/70 p-4">
       <form onSubmit={submit} className="panel my-6 w-full max-w-lg p-6">
         <div className="mono-label">TEAM / CREATE ACCOUNT</div>
-        <h2 className="mt-1 text-xl font-bold">{temporaryPassword ? "Cuenta creada" : "Crear cuenta de equipo"}</h2>
-        {!temporaryPassword ? <>
+        <h2 className="mt-1 text-xl font-bold">{created ? "Cuenta creada" : "Crear cuenta de equipo"}</h2>
+        {!created ? <>
           <p className="mt-2 text-sm text-cb-muted">Crea el perfil y el acceso de Supabase directamente. Define la contraseña inicial; no se enviará una invitación.</p>
           <div className="mt-5 grid gap-4">
             <input className="input" placeholder="Nombre completo" value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={120} required />
@@ -172,17 +175,13 @@ function CreateMember({ close, saved }: { close: () => void; saved: () => Promis
           </div>
         </> : <>
           <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-200">{message}</div>
-          <p className="mt-4 text-sm text-cb-muted">Entrega esta contraseña temporal al empleado por un canal seguro. No la compartas públicamente.</p>
-          <div className="mt-2 flex gap-2">
-            <input className="input min-w-0 flex-1" aria-label="Contraseña temporal" readOnly value={temporaryPassword} onFocus={(event) => event.currentTarget.select()} />
-            <button type="button" className="btn-ghost" onClick={() => void copyPassword()}><Copy size={16} /> {copied ? <Check size={16} /> : "Copiar"}</button>
-          </div>
-          <p className="mt-3 text-xs text-amber-200">Por seguridad, la contraseña solo se muestra en esta pantalla. Pide al empleado cambiarla después de entrar.</p>
+          <p className="mt-4 text-sm text-cb-muted">La cuenta ya está creada con la contraseña inicial que definiste. Entrégale las credenciales al empleado por un canal seguro.</p>
+          
         </>}
-        {message && !temporaryPassword && <div role="alert" className="mt-4 rounded-xl border border-cb-line bg-cb-bg p-3 text-sm text-slate-300">{message}</div>}
+        {message && !created && <div role="alert" className="mt-4 rounded-xl border border-cb-line bg-cb-bg p-3 text-sm text-slate-300">{message}</div>}
         <div className="mt-6 flex justify-end gap-2">
-          <button type="button" className="btn-ghost" onClick={close}>{temporaryPassword ? "Terminar" : "Cerrar"}</button>
-          {!temporaryPassword && <button className="btn-primary" disabled={loading}>{loading ? "Creando cuenta…" : "Crear cuenta"}</button>}
+          <button type="button" className="btn-ghost" onClick={close}>{created ? "Terminar" : "Cerrar"}</button>
+          {!created && <button className="btn-primary" disabled={loading}>{loading ? "Creando cuenta…" : "Crear cuenta"}</button>}
         </div>
       </form>
     </div>
