@@ -131,7 +131,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
               <RefreshCw size={16} className={checking ? "animate-spin" : ""} />
               {checking ? "Verificando..." : "Reintentar"}
             </button>
-            <button className="btn-secondary" onClick={() => void returnToLogin()}>
+            <button className="btn-ghost" onClick={() => void returnToLogin()}>
               <LogOut size={16} />
               Cerrar sesión
             </button>
