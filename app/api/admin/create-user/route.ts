@@ -15,9 +15,10 @@ export async function POST(req: Request) {
     const name = typeof body?.name === "string" ? body.name.trim() : "";
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const requestedRole = body?.role;
+    const password = typeof body?.password === "string" ? body.password : "";
     if (!organizationId || name.length < 2 || name.length > 120 ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-      !["admin", "empleado"].includes(requestedRole)) {
+      !["admin", "empleado"].includes(requestedRole) || password.length < 10 || password.length > 128) {
       return NextResponse.json({ error: "Revisa el nombre, correo y rol seleccionados." }, { status: 400 });
     }
     const url = process.env.CBDEVS_CENTRAL_SUPABASE_URL || process.env.NEXT_PUBLIC_CBDEVS_SUPABASE_URL;
@@ -31,8 +32,8 @@ export async function POST(req: Request) {
       .select("role,status").eq("organization_id", organizationId).eq("user_id", caller.id)
       .eq("status", "active").maybeSingle();
     if (membershipError) {
-      console.error("[TEAM_CREATE_AUTH_CHECK]", membershipError.message);
-      return NextResponse.json({ error: "No se pudieron verificar tus permisos." }, { status: 500 });
+      console.error("[TEAM_CREATE_AUTH_CHECK]", { code: membershipError.code, message: membershipError.message, details: membershipError.details, hint: membershipError.hint });
+      return NextResponse.json({ error: "Supabase no pudo consultar tu membresía. Revisa la variable CBDEVS_CENTRAL_SUPABASE_URL y CBDEVS_CENTRAL_SUPABASE_SERVICE_ROLE_KEY en Vercel, y que apunten al proyecto central correcto." }, { status: 500 });
     }
     if (!callerMembership || !["owner", "admin"].includes(callerMembership.role))
       return NextResponse.json({ error: "Necesitas ser propietario o administrador de esta organización." }, { status: 403 });
@@ -43,9 +44,9 @@ export async function POST(req: Request) {
       .eq("organization_id", organizationId).eq("app_key", "admin").maybeSingle();
     if (appError || !app?.enabled) return NextResponse.json({ error: "CBDEVS Admin no está habilitado para esta organización." }, { status: 403 });
 
-    const temporaryPassword = `Cb!${randomBytes(18).toString("base64url")}9a`;
+    const initialPassword = password;
     const { data: created, error: createError } = await db.auth.admin.createUser({
-      email, password: temporaryPassword, email_confirm: true,
+      email, password: initialPassword, email_confirm: true,
       user_metadata: { display_name: name, name },
     });
     if (createError || !created.user) {
@@ -69,8 +70,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true, user: { id: createdUserId, name, email, role: requestedRole },
-      temporaryPassword,
-      message: "Cuenta creada. Copia la contraseña temporal y entrégala al empleado por un canal seguro.",
+      message: "Cuenta creada correctamente con la contraseña que definiste.",
     }, { status: 201 });
   } catch (error) {
     console.error("[TEAM_CREATE_USER_FAILED]", error instanceof Error ? error.message : "unknown");
