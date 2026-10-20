@@ -11,6 +11,17 @@ Internal CBDEVS operations dashboard. The application runtime uses the central S
 - Data: shared `public` tables with `cbdevs_` prefixes plus the central organization/membership tables.
 - Authorization must require active organization membership and an enabled `admin` app. Authentication alone does not grant access.
 
+## Leads (ventas)
+
+`/leads` shows inquiries submitted from the CBDEVS website contact form, live via Supabase Realtime. The team can:
+
+- Contact the lead by email (prefilled), WhatsApp (`wa.me` with a prefilled message) or phone, and log calls, emails, WhatsApp messages, meetings and notes on an append-only timeline.
+- Move it through the pipeline: Nuevo → Contactado → Calificado → Propuesta → Ganado / Perdido (reason required) / Spam.
+- Assign a responsible member, set the next follow-up (overdue follow-ups are flagged) and an estimated value.
+- Convert it into a client and, optionally, a quoted project in one step (owner/admin/manager).
+
+The sidebar shows a live count of new leads and the dashboard summarizes the pipeline. All access is enforced by RLS in the central database (`cbdevs-database` migration `20261019201500_cbdevs_leads_crm.sql`), which must be applied before deploying this page.
+
 ## Setup
 
 1. Add the public Supabase URL and publishable/legacy anon key to the Admin Vercel project.
