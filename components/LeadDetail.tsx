@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Briefcase, Building2, Check, Copy, ExternalLink, Loader2, Mail,
-  MessageCircle, Phone, Save, Send, StickyNote, Trash2, UserCheck, Users,
+  Briefcase, Building2, Check, Copy, ExternalLink, Loader2, Mail,
+  MessageCircle, Phone, Save, Send, StickyNote, Trash2, UserCheck, Users, X,
 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -221,8 +221,8 @@ export default function LeadDetail({
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-3">
-        <button type="button" onClick={onClose} className="btn-ghost !px-2.5 lg:hidden" aria-label="Volver a la lista">
-          <ArrowLeft size={17} />
+        <button type="button" onClick={onClose} className="btn-ghost order-last !px-2.5" aria-label="Cerrar detalle">
+          <X size={17} />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
