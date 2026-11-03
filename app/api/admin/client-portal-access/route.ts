@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ACTIONS = new Set(["status", "link", "invite", "unlink"]);
+const ACTIONS = new Set(["status", "link", "invite", "invite_link", "unlink"]);
 
-type Action = "status" | "link" | "invite" | "unlink";
+type Action = "status" | "link" | "invite" | "invite_link" | "unlink";
 type ClientRow = { id: string; organization_id: string; name: string; email: string; active: boolean; linked_user_id: string | null };
 
 function json(body: unknown, status = 200) {
@@ -44,6 +44,30 @@ async function findUserByEmail(admin: SupabaseClient, email: string): Promise<Us
   return null;
 }
 
+/** Human message for Auth email failures (default Supabase mailer only reaches project team members). */
+function emailFailure(error: { status?: number; message?: string } | null) {
+  if (error?.status === 429 || /rate limit/i.test(error?.message ?? "")) {
+    return { status: 429, error: "Se alcanzó el límite de correos de Supabase. Usa “Generar enlace de invitación” y compártelo tú, o configura un SMTP propio." };
+  }
+  if (/not authorized/i.test(error?.message ?? "")) {
+    return { status: 502, error: "Supabase no puede enviar correos a este cliente sin un SMTP propio. Usa “Generar enlace de invitación” y compártelo tú." };
+  }
+  return { status: 502, error: "No se pudo enviar la invitación por correo. Usa “Generar enlace de invitación” o revisa el SMTP de Supabase Auth." };
+}
+
+/** One-time invitation link (no email is sent). Works for new and previously invited, unconfirmed accounts. */
+async function invitationLink(admin: SupabaseClient, email: string, redirectTo: string, displayName: string) {
+  const invite = await admin.auth.admin.generateLink({ type: "invite", email, options: { redirectTo, data: { display_name: displayName } } });
+  if (!invite.error && invite.data.user && invite.data.properties?.action_link) return { user: invite.data.user, link: invite.data.properties.action_link };
+  // An existing unconfirmed account may refuse a new "invite" link; a sign-in link confirms it the same way.
+  const magic = await admin.auth.admin.generateLink({ type: "magiclink", email, options: { redirectTo } });
+  if (!magic.error && magic.data.user && magic.data.properties?.action_link) return { user: magic.data.user, link: magic.data.properties.action_link };
+  console.error("[CLIENT_PORTAL_INVITE_LINK_FAILED]", invite.error?.status, invite.error?.code, magic.error?.status, magic.error?.code);
+  return null;
+}
+
+const LINK_NOTE = "Cópialo y envíaselo al cliente por un canal privado (WhatsApp o tu correo). Es de un solo uso y caduca pronto; si expira, genera otro.";
+
 function describe(user: User | null, message?: string) {
   if (!user) return { linked: false, message };
   return {
@@ -70,6 +94,8 @@ async function audit(admin: SupabaseClient, client: ClientRow, actor: string, ac
  * - status: linked account details
  * - link:   link an existing account by email
  * - invite: email an invitation (or link the existing account with that email)
+ * - invite_link: same as invite, but returns a one-time invitation link instead of sending an email
+ *   (works without custom SMTP; the link is shown only to the authorized staff member and never logged)
  * - unlink: remove portal access (the Auth account itself is kept)
  * Only active owner/admin/manager members of the client's organization with CBDEVS Admin enabled.
  */
@@ -136,39 +162,55 @@ export async function POST(req: Request) {
       if (staff) return json({ error: "Ese correo pertenece a un miembro del equipo. Usa un correo distinto para el acceso del cliente." }, 409);
     }
 
+    const wantsLink = action === "invite_link";
+    const redirect = portalUrl();
+    if (!redirect) return json({ error: "La URL del portal (CBDEVS_PORTAL_URL) no es válida." }, 500);
+    const redirectTo = `${redirect}/auth/accept`;
+
     let message: string;
+    let inviteLink: string | undefined;
     if (!target) {
       if (action === "link") return json({ error: "No existe una cuenta con ese correo. Usa “Invitar por correo” para crearla." }, 404);
-      const redirect = portalUrl();
-      if (!redirect) return json({ error: "La URL del portal (CBDEVS_PORTAL_URL) no es válida." }, 500);
-      const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${redirect}/auth/accept`,
-        data: { display_name: client.name },
-      });
-      if (inviteError || !invited.user) {
-        const rate = inviteError?.status === 429 || /rate limit/i.test(inviteError?.message ?? "");
-        console.error("[CLIENT_PORTAL_INVITE_FAILED]", inviteError?.status, inviteError?.code);
-        return json({ error: rate ? "Se alcanzó el límite de correos de Supabase. Espera unos minutos o configura un SMTP propio." : "No se pudo enviar la invitación. Revisa la configuración de correo de Supabase Auth." }, rate ? 429 : 502);
+      if (wantsLink) {
+        const generated = await invitationLink(admin, email, redirectTo, client.name);
+        if (!generated) return json({ error: "No se pudo generar el enlace de invitación." }, 502);
+        target = generated.user;
+        inviteLink = generated.link;
+        message = `Enlace de invitación generado para ${email}. ${LINK_NOTE}`;
+      } else {
+        const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { display_name: client.name } });
+        if (inviteError || !invited.user) {
+          console.error("[CLIENT_PORTAL_INVITE_FAILED]", inviteError?.status, inviteError?.code);
+          const failure = emailFailure(inviteError);
+          return json({ error: failure.error, canGenerateLink: true }, failure.status);
+        }
+        target = invited.user;
+        message = `Invitación enviada a ${email}. El cliente debe abrir el correo y crear su contraseña.`;
       }
-      target = invited.user;
       await admin.from("profiles").upsert({ id: target.id, email, display_name: client.name }, { onConflict: "id" });
-      message = `Invitación enviada a ${email}. El cliente debe abrir el correo y crear su contraseña.`;
-    } else if (action === "invite" && !target.email_confirmed_at) {
-      // Unconfirmed (previously invited) account: send the invitation again.
-      const redirect = portalUrl();
-      const { error: resendError } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: `${redirect}/auth/accept`, data: { display_name: client.name } });
-      if (resendError) console.error("[CLIENT_PORTAL_REINVITE_FAILED]", resendError.status, resendError.code);
-      message = resendError ? "La cuenta ya existe; no se pudo reenviar la invitación, pero quedó vinculada." : `Invitación reenviada a ${email}.`;
+    } else if ((action === "invite" || wantsLink) && !target.email_confirmed_at) {
+      // Unconfirmed (previously invited) account: new link or email, and keep it linked either way.
+      if (wantsLink) {
+        const generated = await invitationLink(admin, email, redirectTo, client.name);
+        if (!generated) return json({ error: "No se pudo generar el enlace de invitación." }, 502);
+        inviteLink = generated.link;
+        message = `Nuevo enlace de invitación para ${email}. ${LINK_NOTE}`;
+      } else {
+        const { error: resendError } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { display_name: client.name } });
+        if (resendError) console.error("[CLIENT_PORTAL_REINVITE_FAILED]", resendError.status, resendError.code);
+        message = resendError ? `La cuenta quedó vinculada, pero no se pudo enviar el correo: ${emailFailure(resendError).error}` : `Invitación reenviada a ${email}.`;
+      }
     } else {
-      message = `Cuenta existente vinculada. ${email} ya puede iniciar sesión en el portal con su contraseña.`;
+      message = `Cuenta existente vinculada. ${email} ya tiene contraseña y puede iniciar sesión en el portal.`;
     }
 
     if (client.linked_user_id !== target.id) {
       const { data: updated, error } = await asCaller.from("cbdevs_clients").update({ linked_user_id: target.id, updated_at: new Date().toISOString() }).eq("id", client.id).select("id");
       if (error || !updated?.length) return json({ error: "No se pudo vincular la cuenta al cliente." }, error ? 500 : 403);
     }
-    await audit(admin, client, caller.id, action === "invite" ? "client.portal.invite" : "client.portal.link", { user_id: target.id, email, previous_user_id: client.linked_user_id });
-    return json(describe(target, message));
+    // The invitation link itself is never written to audit logs or server logs.
+    await audit(admin, client, caller.id, action === "link" ? "client.portal.link" : wantsLink ? "client.portal.invite_link" : "client.portal.invite", { user_id: target.id, email, previous_user_id: client.linked_user_id });
+    return json({ ...describe(target, message), ...(inviteLink ? { inviteLink } : {}) });
   } catch (error) {
     console.error("[CLIENT_PORTAL_ACCESS_FAILED]", error instanceof Error ? error.message : "unknown");
     return json({ error: "No se pudo completar la operación." }, 500);

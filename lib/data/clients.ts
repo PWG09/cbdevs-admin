@@ -101,9 +101,11 @@ export interface PortalAccess {
   lastSignInAt?: string | null;
   invitedAt?: string | null;
   message?: string;
+  /** One-time invitation link, only returned by `invite_link`. Never persisted. */
+  inviteLink?: string;
 }
 
-export type PortalAction = "status" | "link" | "invite" | "unlink";
+export type PortalAction = "status" | "link" | "invite" | "invite_link" | "unlink";
 
 export function portalAccess(clientId: string, action: PortalAction, emailAddress?: string): Promise<PortalAccess> {
   return callAdminApi<PortalAccess>("/api/admin/client-portal-access", { clientId, action, email: emailAddress });

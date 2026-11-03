@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, FolderKanban, KeyRound, Link2, Mail, Pencil, Phone, Plus, Send, Trash2, Unlink, Users } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, Clock, Copy, FolderKanban, KeyRound, Link2, Mail, Pencil, Phone, Plus, Send, Trash2, Unlink, Users } from "lucide-react";
 import ClientForm from "@/components/ClientForm";
 import ConfirmButton from "@/components/ConfirmButton";
 import ProjectForm from "@/components/ProjectForm";
@@ -21,6 +21,8 @@ function PortalAccessCard({ client, onChanged }: { client: Client; onChanged: (l
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const initiallyLinked = Boolean(client.linkedUserId);
   // Load the account status once per client; later changes come back from the actions themselves.
@@ -32,16 +34,27 @@ function PortalAccessCard({ client, onChanged }: { client: Client; onChanged: (l
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client.id]);
 
-  async function run(action: "link" | "invite" | "unlink") {
-    setBusy(true); setError(""); setNotice("");
+  async function run(action: "link" | "invite" | "invite_link" | "unlink") {
+    setBusy(true); setError(""); setNotice(""); setInviteLink(""); setCopied(false);
     try {
-      const result = await portalAccess(client.id, action, action === "unlink" ? undefined : email.trim().toLowerCase());
-      setAccess(result);
+      const result = await portalAccess(client.id, action, action === "unlink" ? undefined : (access?.linked ? access.email || email : email).trim().toLowerCase());
+      const { inviteLink: link, ...rest } = result;
+      setAccess(rest);
+      setInviteLink(link ?? "");
       setNotice(result.message ?? "");
       onChanged(result.linked ? "linked" : null);
     } catch (cause) {
       setError(messageOf(cause, "No se pudo completar la operación."));
     } finally { setBusy(false); }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+    } catch {
+      setError("No se pudo copiar automáticamente. Selecciona el enlace y cópialo manualmente.");
+    }
   }
 
   const validEmail = EMAIL_RE.test(email.trim());
@@ -67,7 +80,8 @@ function PortalAccessCard({ client, onChanged }: { client: Client; onChanged: (l
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {pendingInvite && <button type="button" className="btn-ghost" disabled={busy} onClick={() => void run("invite")}><Send size={15} aria-hidden />Reenviar invitación</button>}
+            {pendingInvite && <button type="button" className="btn-ghost" disabled={busy} onClick={() => void run("invite")}><Send size={15} aria-hidden />Reenviar por correo</button>}
+            {pendingInvite && <button type="button" className="btn-ghost" disabled={busy} onClick={() => void run("invite_link")}><Link2 size={15} aria-hidden />Generar enlace</button>}
             <ConfirmButton className="btn-ghost" confirmLabel="¿Quitar acceso?" onConfirm={() => run("unlink")} disabled={busy}><Unlink size={15} aria-hidden />Quitar acceso</ConfirmButton>
           </div>
         </div>
@@ -79,12 +93,23 @@ function PortalAccessCard({ client, onChanged }: { client: Client; onChanged: (l
           </label>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-primary" disabled={busy || !validEmail} onClick={() => void run("invite")}><Mail size={15} aria-hidden />{busy ? "Enviando…" : "Invitar por correo"}</button>
+            <button type="button" className="btn-ghost" disabled={busy || !validEmail} onClick={() => void run("invite_link")}><Copy size={15} aria-hidden />Generar enlace de invitación</button>
             <button type="button" className="btn-ghost" disabled={busy || !validEmail} onClick={() => void run("link")}><Link2 size={15} aria-hidden />Vincular cuenta existente</button>
           </div>
-          <p className="text-xs text-cb-muted">“Invitar” crea la cuenta y envía un correo para que el cliente defina su contraseña. Si el correo ya tiene cuenta, solo se vincula.</p>
+          <p className="text-xs text-cb-muted">“Invitar” crea la cuenta y envía un correo para que el cliente defina su contraseña. “Generar enlace” hace lo mismo sin enviar correo: tú le compartes el enlace. Si el correo ya tiene cuenta, solo se vincula.</p>
         </div>
       )}
       <div className="mt-4 space-y-2"><ErrorBanner>{error || null}</ErrorBanner><SuccessBanner>{notice || null}</SuccessBanner></div>
+      {inviteLink && (
+        <div className="mt-3 space-y-2 rounded-xl border border-cb-amber/25 bg-cb-amber/5 p-3">
+          <label htmlFor={`invite-link-${client.id}`} className="block text-xs font-semibold text-cb-amber">Enlace de invitación (un solo uso)</label>
+          <div className="flex gap-2">
+            <input id={`invite-link-${client.id}`} className="input min-w-0 flex-1 font-mono text-xs" readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} />
+            <button type="button" className="btn-primary shrink-0 px-3" onClick={() => void copyLink()}>{copied ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}{copied ? "Copiado" : "Copiar"}</button>
+          </div>
+          <p className="text-[11px] text-cb-muted">Quien tenga este enlace puede entrar como el cliente y crear su contraseña. No lo publiques.</p>
+        </div>
+      )}
     </section>
   );
 }
