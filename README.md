@@ -22,6 +22,13 @@ Internal CBDEVS operations dashboard. The application runtime uses the central S
 
 The sidebar shows a live count of new leads and the dashboard summarizes the pipeline. All access is enforced by RLS in the central database (`cbdevs-database` migration `20261019201500_cbdevs_leads_crm.sql`), which must be applied before deploying this page.
 
+## Clientes y proyectos
+
+- **Clientes** (`/clients`): alta/edición, notas, y **acceso al portal**: invitar por correo (Supabase Auth envía el email y el cliente crea su contraseña en `/auth/accept` del Portal), vincular una cuenta existente, reenviar invitación o desvincular. Un cliente con proyectos no se puede eliminar.
+- **Proyectos** (`/projects/[id]`): datos, cliente asignado, hitos, documentos (solo https), pagos y links de pago, y chat privado con el cliente (el mismo canal que ve en el portal).
+- La API `POST /api/admin/client-portal-access` valida al usuario (owner/admin/manager activo o admin global), lee/actualiza `cbdevs_clients` con el token del usuario (RLS) y usa la service role **solo** para Auth Admin, `profiles` y `audit_logs`.
+- Requiere en producción las migraciones de `cbdevs-database` (portal, cursos y `20261103010000_cbdevs_service_role_audit_insert`) y la app `client-portal` habilitada para la organización.
+
 ## Setup
 
 1. Add the public Supabase URL and publishable/legacy anon key to the Admin Vercel project.

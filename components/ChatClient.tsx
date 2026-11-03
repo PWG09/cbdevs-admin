@@ -1,7 +1,68 @@
 "use client";
-import {useEffect,useRef,useState} from "react";import {getSupabaseClient,getCurrentOrganization} from "@/lib/supabase/client";import type {ChatMessage} from "@/lib/types";import {Hash,Send,MessageSquare} from "lucide-react";
-export default function ChatClient(){const [messages,setMessages]=useState<ChatMessage[]>([]),[text,setText]=useState(""),[error,setError]=useState("");const bottom=useRef<HTMLDivElement>(null);
-useEffect(()=>{let alive=true;let channel:any;const load=async()=>{try{const org=await getCurrentOrganization("admin");const db=getSupabaseClient();const {data,error}=await db.from("cbdevs_messages").select("*").eq("organization_id",org).order("created_at",{ascending:true}).limit(150);if(error)throw error;const rows=data||[];const ids=[...new Set(rows.map((m:any)=>m.sender_id))];const {data:profiles}=ids.length?await db.from("profiles").select("id,display_name").in("id",ids):{data:[]};const names=new Map((profiles||[]).map((p:any)=>[p.id,p.display_name||"Usuario"]));if(alive)setMessages(rows.map((m:any)=>({id:m.id,channelId:m.channel_id||"general",senderId:m.sender_id,senderName:names.get(m.sender_id)||"Usuario",text:m.text,createdAt:m.created_at} as ChatMessage)))}catch(e:any){if(alive)setError(e?.message||"No se pudieron cargar los mensajes")}};void load();try{channel=getSupabaseClient().channel("cbdevs-messages").on("postgres_changes",{event:"INSERT",schema:"public",table:"cbdevs_messages"},()=>void load()).subscribe()}catch{}return()=>{alive=false;if(channel)void getSupabaseClient().removeChannel(channel)}},[]);
-useEffect(()=>bottom.current?.scrollIntoView({behavior:"smooth"}),[messages.length]);
-async function send(e:React.FormEvent){e.preventDefault();const value=text.trim();if(!value)return;try{const db=getSupabaseClient();const {data:{user}}=await db.auth.getUser();if(!user)throw new Error("Inicia sesión.");const org=await getCurrentOrganization("admin");const {error}=await db.from("cbdevs_messages").insert({organization_id:org,sender_id:user.id,text:value,channel_id:null});if(error)throw error;setText("");setError("")}catch(e:any){setError(e?.message||"No se pudo enviar el mensaje")}}
-return <div className="mx-auto max-w-[1100px] space-y-5"><div><div className="mono-label">TEAM / REALTIME</div><h1 className="mt-1 text-3xl font-bold">Chat</h1><p className="mt-1 text-sm text-cb-muted">Comunicación interna usando Supabase.</p></div><div className="panel flex h-[calc(100vh-210px)] min-h-[520px] flex-col overflow-hidden"><div className="flex items-center gap-3 border-b border-cb-line bg-cb-panel2 px-5 py-4"><div className="rounded-lg bg-cb-amber/10 p-2 text-cb-amber"><Hash size={17}/></div><div><div className="font-semibold">general</div><div className="text-xs text-slate-500">Equipo CBDEVS</div></div></div><div className="scrollbar flex-1 space-y-4 overflow-y-auto p-5">{error&&<div className="text-sm text-red-300">{error}</div>}{!messages.length&&<div className="grid h-full place-items-center text-center text-slate-600"><MessageSquare className="mx-auto mb-3"/><p>Aún no hay mensajes.</p></div>}{messages.map(m=><div key={m.id} className="flex gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-cb-panel2 font-mono text-xs text-cb-amber">{m.senderName.slice(0,2).toUpperCase()}</div><div><div className="flex items-baseline gap-2"><span className="text-sm font-semibold">{m.senderName}</span><span className="text-[10px] text-slate-600">{m.createdAt?new Date(m.createdAt as any).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"ahora"}</span></div><div className="mt-1 rounded-2xl rounded-tl-sm border border-cb-line bg-cb-panel2 px-3 py-2 text-sm text-slate-200">{m.text}</div></div></div>)}<div ref={bottom}/></div><form onSubmit={send} className="border-t border-cb-line bg-cb-panel2 p-3"><div className="flex gap-2"><input className="input" value={text} onChange={e=>setText(e.target.value)} placeholder="Escribe un mensaje..."/><button className="btn-primary px-3"><Send size={17}/></button></div></form></div></div>}
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ExternalLink, Hash, Search, Users } from "lucide-react";
+import ChatThread from "@/components/ChatThread";
+import { ErrorBanner, PageHeader, Skeleton } from "@/components/ui";
+import { listProjectChannels, type ProjectChannel } from "@/lib/data/messages";
+import { messageOf } from "@/lib/errors";
+import { formatDayHeading } from "@/lib/format";
+
+const TEAM = "__team";
+
+/** Team chat plus every project's client channel. */
+export default function ChatClient() {
+  const [channels, setChannels] = useState<ProjectChannel[] | null>(null);
+  const [selected, setSelected] = useState<string>(TEAM);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("canal");
+    if (fromUrl) setSelected(fromUrl);
+    listProjectChannels().then(setChannels).catch((c) => { setError(messageOf(c, "No se pudieron cargar los canales.")); setChannels([]); });
+  }, []);
+
+  const current = channels?.find((c) => c.id === selected);
+  const visible = useMemo(() => (channels ?? []).filter((c) => !query.trim() || `${c.projectName} ${c.clientName}`.toLowerCase().includes(query.trim().toLowerCase())), [channels, query]);
+
+  function choose(id: string) {
+    setSelected(id);
+    window.history.replaceState(null, "", id === TEAM ? "/chat" : `/chat?canal=${id}`);
+  }
+
+  return (
+    <div className="mx-auto max-w-[1300px] space-y-5">
+      <PageHeader eyebrow="Mensajes" title="Chat" description="Canal interno del equipo y conversaciones con cada cliente por proyecto." />
+      <ErrorBanner>{error || null}</ErrorBanner>
+      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+        <aside className="panel flex max-h-[640px] flex-col overflow-hidden">
+          <button type="button" onClick={() => choose(TEAM)} aria-pressed={selected === TEAM} className={`flex items-center gap-3 border-b border-cb-line p-4 text-left transition ${selected === TEAM ? "bg-cb-amber/10" : "hover:bg-cb-panel2"}`}>
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-cb-panel2 text-cb-amber"><Users size={16} aria-hidden /></div>
+            <div><div className="text-sm font-semibold">Equipo (interno)</div><div className="text-xs text-cb-muted">Solo lo ve el equipo</div></div>
+          </button>
+          <div className="border-b border-cb-line p-3">
+            <label className="relative block"><span className="sr-only">Buscar proyecto</span><Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-cb-muted" aria-hidden /><input className="input py-2 pl-8 text-xs" placeholder="Buscar proyecto…" value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+          </div>
+          <div className="scrollbar flex-1 overflow-y-auto">
+            {channels === null ? <div className="space-y-2 p-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-12" />)}</div> : visible.length === 0 ? <p className="p-4 text-xs text-cb-muted">Sin canales de proyecto.</p> : visible.map((c) => (
+              <button key={c.id} type="button" onClick={() => choose(c.id)} aria-pressed={selected === c.id} className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${selected === c.id ? "bg-cb-amber/10" : "hover:bg-cb-panel2"}`}>
+                <Hash size={15} className="shrink-0 text-cb-muted" aria-hidden />
+                <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{c.projectName}</div><div className="truncate text-xs text-cb-muted">{c.clientName}</div></div>
+                {c.lastAt && <span className="shrink-0 text-[10px] text-slate-500">{formatDayHeading(c.lastAt)}</span>}
+              </button>
+            ))}
+          </div>
+        </aside>
+        <section className="panel p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0"><div className="truncate font-semibold">{selected === TEAM ? "Equipo (interno)" : current?.projectName ?? "Proyecto"}</div><div className="text-xs text-cb-muted">{selected === TEAM ? "Los clientes no ven este canal." : `Conversación con ${current?.clientName ?? "el cliente"} · la ve en su portal`}</div></div>
+            {current && <Link href={`/projects/${current.projectId}#messages`} className="btn-ghost shrink-0 px-3 py-1.5 text-xs">Abrir proyecto <ExternalLink size={12} aria-hidden /></Link>}
+          </div>
+          <ChatThread key={selected} channelId={selected === TEAM ? null : selected} externalName={current?.clientName ?? "Cliente"} emptyHint={selected === TEAM ? "Aún no hay mensajes del equipo." : "Aún no hay mensajes en este proyecto."} />
+        </section>
+      </div>
+    </div>
+  );
+}
